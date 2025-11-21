@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  ecolease-poc:
+    build: .
+    container_name: ecolease-poc
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./kb:/app/kb
+      - ./output:/app/output
+      - ./test-files:/app/test-files
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL}
+    env_file:
+      - .env
+    command: streamlit run app.py --server.address=0.0.0.0

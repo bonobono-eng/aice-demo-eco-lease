@@ -1,0 +1,46 @@
+system:
+  log_level: INFO
+  processing_timeout: 300  # 5 minutes
+
+document_processing:
+  supported_formats:
+    - pdf
+    - docx
+    - xlsx
+  ocr:
+    enabled: true
+    language: jpn
+    engine: paddleocr
+
+embedding:
+  model_name: BAAI/bge-m3
+  batch_size: 32
+  dimension: 1024
+
+vectordb:
+  type: faiss
+  index_type: IndexFlatIP
+
+llm:
+  provider: anthropic
+  model: claude-sonnet-4-5-20250929
+  temperature: 0.1
+  max_tokens: 4000
+
+rag:
+  top_k: 5
+  score_threshold: 0.7
+
+estimate:
+  target_accuracy: 0.70
+  disciplines:
+    - 電気
+    - 機械
+    - 空調
+    - 衛生
+    - ガス
+    - 消防
+
+output:
+  excel_template: ./templates/estimate_template.xlsx
+  pdf_template: ./templates/estimate_cover_template.html
