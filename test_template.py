@@ -1,26 +1,65 @@
 """テンプレートPDF生成テスト"""
 
 from pipelines.schemas import FMTDocument, ProjectInfo, EstimateItem, FacilityType, DisciplineType
-from pipelines.pdf_generator import EcoleasePDFGenerator
+from pipelines.export import EstimateExporter
 from datetime import datetime
 
-# ダミーデータを作成
+# ダミーデータを作成（電気・機械とガスの両方）
 fmt_doc = FMTDocument(
     created_at=datetime.now().isoformat(),
     project_info=ProjectInfo(
-        project_name="都立山崎高校仮設校舎　都市ガス設備工事",
+        project_name="都立山崎高校仮設校舎　設備工事",
         client_name="株式会社システムハウスR&C東京支店",
         location="東京都町田市山崎町1453番地1",
         contract_period="25ヶ月（2026.8.1～2028.8.31）見積有効期間6ヶ月"
     ),
     facility_type=FacilityType.SCHOOL,
-    disciplines=[DisciplineType.GAS],
+    disciplines=[DisciplineType.ELECTRICAL, DisciplineType.MECHANICAL, DisciplineType.GAS],
     estimate_items=[
+        # 電気・機械設備工事
         EstimateItem(
             item_no="1",
             level=0,
+            name="電気設備工事",
+            amount=5000000,
+            discipline=DisciplineType.ELECTRICAL
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="配線工事",
+            specification="VVF2.0-2C",
+            quantity=500,
+            unit="m",
+            unit_price=800,
+            amount=400000,
+            discipline=DisciplineType.ELECTRICAL
+        ),
+        EstimateItem(
+            item_no="2",
+            level=0,
+            name="機械設備工事",
+            amount=3500000,
+            discipline=DisciplineType.MECHANICAL
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="換気扇設置",
+            specification="天井埋込型",
+            quantity=10,
+            unit="台",
+            unit_price=35000,
+            amount=350000,
+            discipline=DisciplineType.MECHANICAL
+        ),
+        # ガス設備工事
+        EstimateItem(
+            item_no="3",
+            level=0,
             name="都市ガス設備工事",
-            amount=11275000
+            amount=11275000,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -30,7 +69,8 @@ fmt_doc = FMTDocument(
             quantity=1,
             unit="件",
             unit_price=13600,
-            amount=13600
+            amount=13600,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -40,7 +80,8 @@ fmt_doc = FMTDocument(
             quantity=None,
             unit="",
             unit_price=None,
-            amount=None
+            amount=None,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -50,7 +91,8 @@ fmt_doc = FMTDocument(
             quantity=93,
             unit="m",
             unit_price=8990,
-            amount=836070
+            amount=836070,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -60,7 +102,8 @@ fmt_doc = FMTDocument(
             quantity=18,
             unit="m",
             unit_price=8990,
-            amount=161820
+            amount=161820,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -70,13 +113,378 @@ fmt_doc = FMTDocument(
             quantity=16,
             unit="m",
             unit_price=8990,
-            amount=143840
+            amount=143840,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="32A",
+            quantity=34,
+            unit="m",
+            unit_price=8990,
+            amount=305660,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="50A",
+            quantity=10,
+            unit="m",
+            unit_price=15210,
+            amount=152100,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="80A",
+            quantity=2,
+            unit="m",
+            unit_price=22360,
+            amount=44720,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="カラー鋼管（ネジ接合）",
+            specification="25A",
+            quantity=4,
+            unit="m",
+            unit_price=10680,
+            amount=42720,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="32A",
+            quantity=54,
+            unit="m",
+            unit_price=10680,
+            amount=576720,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="50A",
+            quantity=19,
+            unit="m",
+            unit_price=18200,
+            amount=345800,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="PE管",
+            specification="25A",
+            quantity=8,
+            unit="m",
+            unit_price=9420,
+            amount=75360,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="30A",
+            quantity=4,
+            unit="m",
+            unit_price=9420,
+            amount=37680,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="50A",
+            quantity=4,
+            unit="m",
+            unit_price=12200,
+            amount=48800,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="75A",
+            quantity=104,
+            unit="m",
+            unit_price=16120,
+            amount=1676480,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="露出結び（鋼管）",
+            specification="40A",
+            quantity=1,
+            unit="ヶ所",
+            unit_price=11120,
+            amount=11120,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="〃",
+            specification="80A",
+            quantity=1,
+            unit="ヶ所",
+            unit_price=19240,
+            amount=19240,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="ガス栓等材料費",
+            specification="",
+            quantity=None,
+            unit="",
+            unit_price=None,
+            amount=None,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="ガスコンセント（S露出）",
+            specification="",
+            quantity=16,
+            unit="個",
+            unit_price=9220,
+            amount=147520,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="ガスコンセント（W露出）",
+            specification="",
+            quantity=13,
+            unit="個",
+            unit_price=13910,
+            amount=180830,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="ネジコック（WPII型）",
+            specification="20A",
+            quantity=3,
+            unit="個",
+            unit_price=7300,
+            amount=21900,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="特別材料費",
+            specification="",
+            quantity=None,
+            unit="",
+            unit_price=None,
+            amount=None,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="分岐コック",
+            specification="80A",
+            quantity=2,
+            unit="個",
+            unit_price=36010,
+            amount=72020,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="ボールスライドジョイント200mm",
+            specification="80A",
+            quantity=2,
+            unit="個",
+            unit_price=347230,
+            amount=694460,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="付帯工事費",
+            specification="",
+            quantity=None,
+            unit="",
+            unit_price=None,
+            amount=None,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="配管撤去費",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=10400,
+            amount=10400,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="配管支持金具費（SUS）",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=956800,
+            amount=956800,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="穴補修費",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=19500,
+            amount=19500,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="埋戻し費",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=172850,
+            amount=172850,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="カッター切",
+            specification="151～200mm",
+            quantity=1,
+            unit="式",
+            unit_price=793730,
+            amount=793730,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="コンクリート壊し",
+            specification="～200mm",
+            quantity=1,
+            unit="式",
+            unit_price=441170,
+            amount=441170,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="コンクリート復旧",
+            specification="～200mm",
+            quantity=1,
+            unit="式",
+            unit_price=703250,
+            amount=703250,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="完全固定金具",
+            specification="80Ax4",
+            quantity=1,
+            unit="式",
+            unit_price=232860,
+            amount=232860,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="高所作業車使用料",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=195000,
+            amount=195000,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="機器搬続費",
+            specification="",
+            quantity=None,
+            unit="",
+            unit_price=None,
+            amount=None,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="資機材運搬費",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=909000,
+            amount=909000,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=1,
+            name="機器搬続費",
+            specification="",
+            quantity=None,
+            unit="",
+            unit_price=None,
+            amount=None,
+            discipline=DisciplineType.GAS
+        ),
+        EstimateItem(
+            item_no="",
+            level=2,
+            name="諸経費",
+            specification="",
+            quantity=1,
+            unit="式",
+            unit_price=1200810,
+            amount=1200810,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="2",
             level=0,
             name="解体費",
-            amount=1500000
+            amount=1500000,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -86,13 +494,15 @@ fmt_doc = FMTDocument(
             quantity=1,
             unit="式",
             unit_price=1500000,
-            amount=1500000
+            amount=1500000,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="3",
             level=0,
             name="法定福利費",
-            amount=657263
+            amount=657263,
+            discipline=DisciplineType.GAS
         ),
         EstimateItem(
             item_no="",
@@ -102,7 +512,8 @@ fmt_doc = FMTDocument(
             quantity=1,
             unit="式",
             unit_price=657263,
-            amount=657263
+            amount=657263,
+            discipline=DisciplineType.GAS
         ),
     ],
     metadata={
@@ -110,13 +521,13 @@ fmt_doc = FMTDocument(
     }
 )
 
-# PDF生成
-pdf_gen = EcoleasePDFGenerator()
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-output_path = f"./output/template_test_{timestamp}.pdf"
-
+# PDF生成（分野別に分けて生成）
 import os
 os.makedirs("./output", exist_ok=True)
 
-pdf_gen.generate(fmt_doc, output_path)
-print(f"✅ テンプレートPDFを生成しました: {output_path}")
+exporter = EstimateExporter(output_dir="./output")
+output_paths = exporter.export_to_pdfs_by_discipline(fmt_doc)
+
+print(f"✅ 分野別PDFを生成しました:")
+for path in output_paths:
+    print(f"   - {path}")

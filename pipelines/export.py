@@ -9,7 +9,15 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.worksheet.pagebreak import Break
 
-from pipelines.schemas import FMTDocument, EstimateItem
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
+
+from pipelines.schemas import FMTDocument, EstimateItem, DisciplineType, ProjectInfo
 from pipelines.pdf_generator import EcoleasePDFGenerator
 
 
@@ -19,6 +27,74 @@ class EstimateExporter:
     def __init__(self, output_dir: str = "./output"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def split_by_discipline_group(fmt_doc: FMTDocument) -> dict[str, FMTDocument]:
+        """
+        FMTDocumentを工事区分グループ別に分離
+
+        電気・機械グループとガスグループに分ける
+
+        Returns:
+            {'electrical_mechanical': FMTDocument, 'gas': FMTDocument}
+        """
+        # グループ定義
+        electrical_mechanical_group = {DisciplineType.ELECTRICAL, DisciplineType.MECHANICAL,
+                                       DisciplineType.HVAC, DisciplineType.PLUMBING}
+        gas_group = {DisciplineType.GAS}
+
+        result = {}
+
+        # 電気・機械グループ
+        em_items = [item for item in fmt_doc.estimate_items
+                    if item.discipline in electrical_mechanical_group or item.discipline is None]
+        if em_items:
+            em_disciplines = [d for d in fmt_doc.disciplines if d in electrical_mechanical_group]
+            if em_disciplines:
+                em_doc = FMTDocument(
+                    fmt_version=fmt_doc.fmt_version,
+                    created_at=fmt_doc.created_at,
+                    project_info=fmt_doc.project_info.model_copy(),
+                    facility_type=fmt_doc.facility_type,
+                    building_specs=fmt_doc.building_specs,
+                    disciplines=em_disciplines,
+                    requirements=fmt_doc.requirements,
+                    estimate_items=em_items,
+                    legal_references=fmt_doc.legal_references,
+                    qa_items=fmt_doc.qa_items,
+                    raw_text=fmt_doc.raw_text,
+                    extracted_tables=fmt_doc.extracted_tables,
+                    metadata=fmt_doc.metadata.copy()
+                )
+                # 工事名に「電気・機械」を追加
+                em_doc.project_info.project_name = f"{em_doc.project_info.project_name.replace('都市ガス設備工事', '').strip()} 電気・機械設備工事"
+                result['electrical_mechanical'] = em_doc
+
+        # ガスグループ
+        gas_items = [item for item in fmt_doc.estimate_items
+                     if item.discipline in gas_group]
+        if gas_items:
+            gas_disciplines = [d for d in fmt_doc.disciplines if d in gas_group]
+            if gas_disciplines:
+                gas_doc = FMTDocument(
+                    fmt_version=fmt_doc.fmt_version,
+                    created_at=fmt_doc.created_at,
+                    project_info=fmt_doc.project_info.model_copy(),
+                    facility_type=fmt_doc.facility_type,
+                    building_specs=fmt_doc.building_specs,
+                    disciplines=gas_disciplines,
+                    requirements=fmt_doc.requirements,
+                    estimate_items=gas_items,
+                    legal_references=fmt_doc.legal_references,
+                    qa_items=fmt_doc.qa_items,
+                    raw_text=fmt_doc.raw_text,
+                    extracted_tables=fmt_doc.extracted_tables,
+                    metadata=fmt_doc.metadata.copy()
+                )
+                # 工事名を維持（都市ガス設備工事）
+                result['gas'] = gas_doc
+
+        return result
 
     def export_to_excel(self, fmt_doc: FMTDocument, filename: Optional[str] = None) -> str:
         """
@@ -365,6 +441,43 @@ class EstimateExporter:
         logger.info(f"PDF file saved: {output_path}")
 
         return str(output_path)
+
+    def export_to_pdfs_by_discipline(self, fmt_doc: FMTDocument) -> list[str]:
+        """
+        見積書を工事区分グループ別に複数のPDFで出力
+
+        Args:
+            fmt_doc: FMTドキュメント
+
+        Returns:
+            出力ファイルパスのリスト
+        """
+        logger.info("Splitting document by discipline groups...")
+
+        # 分野別に分離
+        docs_by_group = self.split_by_discipline_group(fmt_doc)
+
+        if not docs_by_group:
+            logger.warning("No discipline groups found, exporting as single PDF")
+            return [self.export_to_pdf(fmt_doc)]
+
+        output_paths = []
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        for group_name, group_doc in docs_by_group.items():
+            # ファイル名を分野別に生成
+            if group_name == 'electrical_mechanical':
+                filename = f"見積書_電気機械_{timestamp}.pdf"
+            elif group_name == 'gas':
+                filename = f"見積書_ガス_{timestamp}.pdf"
+            else:
+                filename = f"見積書_{group_name}_{timestamp}.pdf"
+
+            path = self.export_to_pdf(group_doc, filename)
+            output_paths.append(path)
+            logger.info(f"Generated PDF for {group_name}: {path}")
+
+        return output_paths
 
     def export_to_pdf_old(self, fmt_doc: FMTDocument, filename: Optional[str] = None) -> str:
         """

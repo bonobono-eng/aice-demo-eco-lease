@@ -40,6 +40,8 @@ wheels/
 output/
 *.xlsx
 *.pdf
+# Exception: track test files
+!test-files/*.pdf
 
 # Knowledge Base (large files)
 kb/past_estimates/*.xlsx
@@ -58,5 +60,4 @@ Thumbs.db
 # Streamlit
 .streamlit/
 
-# Test files (optional - remove if you want to track test files)
-# test-files/*.pdf
+

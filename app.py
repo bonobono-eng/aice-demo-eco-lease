@@ -3,14 +3,14 @@
 import streamlit as st
 from pathlib import Path
 import tempfile
+import json
 from datetime import datetime
 from loguru import logger
+import PyPDF2
 
-from pipelines.ingest import DocumentIngestor
-from pipelines.normalize import FMTNormalizer
-from pipelines.classify import Classifier
-from pipelines.rag_price import PriceRAG
-from pipelines.estimate import EstimateGenerator
+from pipelines.schemas import DisciplineType, FacilityType, PriceReference
+from pipelines.kb_builder import EnhancedEstimateExtractor, PriceKBBuilder
+from pipelines.estimate_extractor import EstimateExtractor
 from pipelines.export import EstimateExporter
 
 
@@ -28,6 +28,15 @@ def init_session_state():
         st.session_state.fmt_doc = None
     if 'processing_time' not in st.session_state:
         st.session_state.processing_time = None
+    if 'price_kb' not in st.session_state:
+        # 過去見積KBを読み込み
+        kb_path = Path("kb/price_kb.json")
+        if kb_path.exists():
+            with open(kb_path, 'r', encoding='utf-8') as f:
+                kb_data = json.load(f)
+            st.session_state.price_kb = [PriceReference(**item) for item in kb_data]
+        else:
+            st.session_state.price_kb = []
 
 
 def main():
@@ -41,26 +50,49 @@ def main():
     with st.sidebar:
         st.header("⚙️ 設定")
 
-        use_llm = st.checkbox("LLMを使用", value=True,
-                             help="Azure OpenAI GPT-4oを使用して見積項目を生成")
+        use_rag = st.checkbox("過去見積RAG（単価検索）", value=True,
+                             help="過去見積KBから類似価格を自動検索")
 
-        use_rag = st.checkbox("過去見積RAGを使用", value=True,
-                             help="過去見積から類似価格を検索")
+        show_confidence = st.checkbox("信頼度スコア表示", value=True,
+                                     help="各項目の信頼度スコアを表示")
+
+        show_source = st.checkbox("根拠情報表示", value=True,
+                                 help="価格の出典（KB ID）を表示")
+
+        # 工事区分選択
+        st.markdown("---")
+        st.header("🏗️ 工事区分")
+        disciplines = st.multiselect(
+            "抽出する工事区分を選択",
+            options=[
+                DisciplineType.GAS,
+                DisciplineType.ELECTRICAL,
+                DisciplineType.MECHANICAL,
+                DisciplineType.HVAC,
+                DisciplineType.PLUMBING
+            ],
+            default=[DisciplineType.GAS],
+            format_func=lambda x: x.value
+        )
 
         st.markdown("---")
 
         st.header("📊 システム情報")
-        st.info("""
+        st.info(f"""
         **使用AI**
         - Claude Sonnet 4.5 (最新)
 
+        **過去見積KB**
+        - 登録項目数: {len(st.session_state.price_kb)}件
+        - 総額: ¥{sum(ref.unit_price * ref.features.get('quantity', 1) for ref in st.session_state.price_kb):,.0f}
+
         **目標**
         - 処理時間: 5分以内
-        - 完成度: 70%以上
+        - 信頼度スコア: ≥0.8
 
         **対応工事区分**
-        - 電気・機械・空調
-        - 衛生・ガス・消防
+        - ガス・電気・機械
+        - 空調・衛生・消防
         """)
 
     # メインコンテンツ
@@ -81,7 +113,7 @@ def main():
             col1, col2 = st.columns([1, 4])
             with col1:
                 if st.button("🚀 処理開始", type="primary"):
-                    process_document(uploaded_file, use_llm, use_rag)
+                    process_document(uploaded_file, disciplines, use_rag, show_confidence, show_source)
 
     with tab2:
         st.header("見積内容の確認・編集")
@@ -129,15 +161,30 @@ def main():
             st.subheader("💰 見積明細")
 
             if fmt_doc.estimate_items:
-                # 合計金額
+                # 統計情報
+                col1, col2, col3 = st.columns(3)
+
                 total = sum(item.amount or 0 for item in fmt_doc.estimate_items if item.level == 0)
-                st.metric("**合計金額（税別）**", f"¥{total:,.0f}")
+                with col1:
+                    st.metric("**合計金額（税別）**", f"¥{total:,.0f}")
+
+                # 信頼度統計
+                items_with_conf = [item for item in fmt_doc.estimate_items if item.confidence is not None]
+                if items_with_conf:
+                    avg_confidence = sum(item.confidence for item in items_with_conf) / len(items_with_conf)
+                    with col2:
+                        st.metric("**平均信頼度**", f"{avg_confidence:.2f}")
+
+                    high_conf = sum(1 for item in items_with_conf if item.confidence >= 0.8)
+                    with col3:
+                        st.metric("**高信頼度項目**", f"{high_conf}/{len(items_with_conf)}")
 
                 # テーブル表示
                 estimate_data = []
                 for item in fmt_doc.estimate_items:
                     indent = "　" * item.level
-                    estimate_data.append({
+
+                    row = {
                         "No": item.item_no,
                         "名称": f"{indent}{item.name}",
                         "仕様": item.specification or "",
@@ -145,8 +192,20 @@ def main():
                         "単位": item.unit or "",
                         "単価": f"¥{item.unit_price:,.0f}" if item.unit_price else "",
                         "金額": f"¥{item.amount:,.0f}" if item.amount else "",
-                        "摘要": item.remarks or ""
-                    })
+                    }
+
+                    # 信頼度スコア表示
+                    if show_confidence and item.confidence is not None:
+                        conf_indicator = "●" * int(item.confidence * 5)
+                        row["信頼度"] = f"{item.confidence:.2f} {conf_indicator}"
+
+                    # 根拠情報表示
+                    if show_source and item.source_reference:
+                        row["根拠"] = item.source_reference
+
+                    row["摘要"] = item.remarks or ""
+
+                    estimate_data.append(row)
 
                 st.dataframe(estimate_data, use_container_width=True, height=400)
 
@@ -172,8 +231,8 @@ def main():
                     export_excel()
 
             with col2:
-                if st.button("📄 PDFファイルを出力"):
-                    export_pdf()
+                if st.button("📄 PDFファイルを出力（分野別）"):
+                    export_pdf_by_discipline()
 
             # FMTドキュメントをJSON出力
             with st.expander("🔧 FMTドキュメント（JSON）"):
@@ -183,8 +242,8 @@ def main():
             st.info("見積を生成してから出力してください")
 
 
-def process_document(uploaded_file, use_llm: bool, use_rag: bool):
-    """ドキュメントを処理して見積を生成"""
+def process_document(uploaded_file, disciplines: list, use_rag: bool, show_confidence: bool, show_source: bool):
+    """ドキュメントを処理して見積を生成（RAG統合版）"""
 
     start_time = datetime.now()
 
@@ -195,67 +254,82 @@ def process_document(uploaded_file, use_llm: bool, use_rag: bool):
                 tmp_file.write(uploaded_file.read())
                 tmp_path = tmp_file.name
 
-            # ステップ1: ドキュメント取り込み
-            st.info("📥 ステップ1: ドキュメントを解析中...")
-            ingestor = DocumentIngestor()
-            ingested_data = ingestor.ingest(tmp_path)
+            # ステップ1: PDFからテキストを抽出
+            st.info("📥 ステップ1: PDFからテキストを抽出中...")
+            with open(tmp_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                spec_text = ""
+                page_count = len(pdf_reader.pages)
+                for page_num in range(min(page_count, 50)):
+                    spec_text += pdf_reader.pages[page_num].extract_text() + "\n"
 
-            # 案件情報と建物仕様を抽出
-            project_info = ingestor.extract_project_info(ingested_data)
-            building_specs_raw = ingestor.extract_building_specs(ingested_data)
+            st.success(f"✅ {page_count}ページから{len(spec_text):,}文字を抽出")
 
-            # 建物仕様を整形
-            if building_specs_raw:
-                building_specs = building_specs_raw
+            # ステップ2: プロジェクト情報を抽出
+            st.info("🔄 ステップ2: プロジェクト情報をLLMで抽出中...")
+            extractor_basic = EstimateExtractor()
+            project_info_dict = extractor_basic.extract_project_info(spec_text)
+
+            st.success(f"✅ 工事名: {project_info_dict.get('project_name', 'N/A')}")
+
+            # ステップ3: 見積項目を抽出（信頼度スコア付き）
+            all_items = []
+
+            if not use_rag:
+                # RAG なしの場合は基本抽出のみ
+                st.info("📋 ステップ3: 見積項目をLLMで抽出中...")
+                for discipline in disciplines:
+                    items = extractor_basic.extract_estimate_items(spec_text, discipline)
+                    all_items.extend(items)
+
+                st.success(f"✅ {len(all_items)}項目を抽出")
             else:
-                # デフォルトの建物仕様を作成
-                building_specs = [{
-                    'building_name': project_info.get('project_name', '建物'),
-                    'building_type': '不明',
-                    'rooms': building_specs_raw
-                }]
+                # RAG ありの場合は拡張版を使用
+                st.info("📋 ステップ3: 信頼度スコア付きで項目を抽出中...")
 
-            st.success(f"✅ {ingested_data.get('metadata', {}).get('page_count', 0)}ページ、"
-                      f"{len(ingested_data.get('tables', []))}テーブルを抽出")
+                # KB読み込み
+                price_kb = st.session_state.price_kb
+                extractor_enhanced = EnhancedEstimateExtractor(price_kb)
 
-            # ステップ2: FMT正規化
-            st.info("🔄 ステップ2: データを正規化中...")
-            normalizer = FMTNormalizer()
-            fmt_doc = normalizer.normalize(ingested_data, project_info, building_specs)
-            fmt_doc = normalizer.update_fmt_with_requirements(fmt_doc)
+                for discipline in disciplines:
+                    items = extractor_enhanced.extract_with_confidence(spec_text, discipline)
+                    all_items.extend(items)
 
-            st.success(f"✅ FMTフォーマットに変換")
+                # 信頼度統計
+                if all_items:
+                    avg_conf = sum(item.confidence or 0 for item in all_items) / len(all_items)
+                    high_conf = sum(1 for item in all_items if item.confidence and item.confidence >= 0.8)
+                    st.success(f"✅ {len(all_items)}項目を抽出 (平均信頼度: {avg_conf:.2f}, 高信頼度: {high_conf}項目)")
 
-            # ステップ3: 分類
-            st.info("🏷️ ステップ3: 工事区分を分類中...")
-            classifier = Classifier()
-            fmt_doc = classifier.classify(fmt_doc)
+                # ステップ4: KB単価検索（RAG）
+                st.info("🔍 ステップ4: 過去見積KBから単価を検索中...")
+                all_items = extractor_enhanced.enrich_with_price_rag(all_items)
 
-            st.success(f"✅ {len(fmt_doc.disciplines)}種類の工事区分を検出: "
-                      f"{', '.join([d.value for d in fmt_doc.disciplines])}")
+                matched = sum(1 for item in all_items if item.unit_price is not None)
+                st.success(f"✅ {matched}/{len(all_items)}項目の単価をマッチング")
 
-            # ステップ4: RAG初期化（オプション）
-            price_rag = None
-            if use_rag:
-                st.info("🔍 ステップ4: 過去見積データベースを準備中...")
-                price_rag = PriceRAG()
-                price_rag.initialize()
+            # FMTDocumentを作成
+            from pipelines.schemas import FMTDocument, ProjectInfo
 
-                # サンプルデータを追加（実際にはExcelから読み込み）
-                # price_rag.build_from_excel("path/to/past_estimates.xlsx")
+            project_info = ProjectInfo(
+                project_name=project_info_dict.get("project_name", ""),
+                client_name=project_info_dict.get("client_name", ""),
+                location=project_info_dict.get("location", ""),
+                contract_period=project_info_dict.get("contract_period", "")
+            )
 
-                st.success("✅ RAGデータベース準備完了")
-
-            # ステップ5: 見積生成
-            st.info("💰 ステップ5: 見積を生成中...")
-            generator = EstimateGenerator(use_llm=use_llm)
-            if price_rag:
-                generator.set_price_rag(price_rag)
-
-            fmt_doc = generator.generate(fmt_doc)
-
-            total = sum(item.amount or 0 for item in fmt_doc.estimate_items if item.level == 0)
-            st.success(f"✅ {len(fmt_doc.estimate_items)}項目の見積を生成 (合計: ¥{total:,.0f})")
+            fmt_doc = FMTDocument(
+                created_at=datetime.now().isoformat(),
+                project_info=project_info,
+                facility_type=FacilityType.SCHOOL,  # デフォルト
+                disciplines=disciplines,
+                estimate_items=all_items,
+                metadata={
+                    "payment_terms": project_info_dict.get("payment_terms", "本紙記載内容のみ有効とする。"),
+                    "remarks": project_info_dict.get("remarks", "法定福利費を含む。"),
+                    "source": "RAG自動生成" if use_rag else "LLM基本抽出"
+                }
+            )
 
             # セッションに保存
             st.session_state.fmt_doc = fmt_doc
@@ -265,19 +339,30 @@ def process_document(uploaded_file, use_llm: bool, use_rag: bool):
             processing_time = (end_time - start_time).total_seconds()
             st.session_state.processing_time = processing_time
 
+            # 統計情報
+            total = sum(item.amount or 0 for item in all_items if item.amount)
+
             # 完了メッセージ
-            st.success(f"🎉 処理完了！ (処理時間: {processing_time:.2f}秒)")
+            st.success(f"🎉 処理完了！")
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("処理時間", f"{processing_time:.1f}秒")
+            with col2:
+                st.metric("抽出項目数", len(all_items))
+            with col3:
+                st.metric("推定総額", f"¥{total:,.0f}" if total > 0 else "要確認")
 
             # 目標達成チェック
             if processing_time <= 300:  # 5分
                 st.balloons()
                 st.success("✅ 目標処理時間（5分以内）を達成！")
-            else:
-                st.warning(f"⚠️ 処理時間が目標（5分）を超えました: {processing_time:.2f}秒")
 
         except Exception as e:
             st.error(f"❌ エラーが発生しました: {str(e)}")
             logger.exception("Processing error")
+            import traceback
+            st.code(traceback.format_exc())
 
 
 def export_excel():
@@ -304,28 +389,32 @@ def export_excel():
             logger.exception("Export error")
 
 
-def export_pdf():
-    """PDFファイルを出力"""
+def export_pdf_by_discipline():
+    """PDFファイルを分野別に出力"""
 
-    with st.spinner("PDFファイルを生成中..."):
+    with st.spinner("PDFファイルを生成中（分野別）..."):
         try:
-            exporter = EstimateExporter()
-            output_path = exporter.export_to_pdf(st.session_state.fmt_doc)
+            exporter = EstimateExporter(output_dir="./output")
+            output_paths = exporter.export_to_pdfs_by_discipline(st.session_state.fmt_doc)
 
-            st.success(f"✅ PDFファイルを生成しました: {output_path}")
+            st.success(f"✅ {len(output_paths)}件のPDFファイルを生成しました")
 
-            # ダウンロードボタン
-            with open(output_path, 'rb') as f:
-                st.download_button(
-                    label="📥 PDFファイルをダウンロード",
-                    data=f,
-                    file_name=Path(output_path).name,
-                    mime="application/pdf"
-                )
+            # 各ファイルのダウンロードボタン
+            for output_path in output_paths:
+                with open(output_path, 'rb') as f:
+                    st.download_button(
+                        label=f"📥 {Path(output_path).name}",
+                        data=f,
+                        file_name=Path(output_path).name,
+                        mime="application/pdf",
+                        key=output_path
+                    )
 
         except Exception as e:
             st.error(f"❌ PDF出力エラー: {str(e)}")
             logger.exception("PDF export error")
+            import traceback
+            st.code(traceback.format_exc())
 
 
 if __name__ == "__main__":

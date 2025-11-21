@@ -110,6 +110,61 @@ class EcoleasePDFGenerator:
                 else:
                     c.drawString(x + dx, y + dy, text)
 
+    def _wrap_text(self, c, text, max_width):
+        """テキストを指定幅で折り返す
+
+        Args:
+            c: Canvas オブジェクト
+            text: 折り返すテキスト
+            max_width: 最大幅（ポイント単位）
+
+        Returns:
+            list: 折り返されたテキストの行リスト
+        """
+        if not text:
+            return ['']
+
+        words = []
+        current_word = ""
+
+        # 文字列を単語とデリミタに分割
+        for char in text:
+            if char in ['、', '。', '（', '）', '　', ' ', '/', '～', '~', ',', '.']:
+                if current_word:
+                    words.append(current_word)
+                    current_word = ""
+                words.append(char)
+            else:
+                current_word += char
+
+        if current_word:
+            words.append(current_word)
+
+        lines = []
+        current_line = ""
+
+        for word in words:
+            test_line = current_line + word
+            # 現在のフォント設定でテキスト幅を測定
+            font_name = c._fontname
+            font_size = c._fontsize
+
+            if c.stringWidth(test_line, font_name, font_size) <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                    current_line = word
+                else:
+                    # 単語自体が長すぎる場合、強制的に折り返す
+                    lines.append(word)
+                    current_line = ""
+
+        if current_line:
+            lines.append(current_line)
+
+        return lines if lines else ['']
+
     def generate(self, fmt_doc: FMTDocument, output_path: str):
         """PDF生成メイン処理"""
 
@@ -337,22 +392,43 @@ class EcoleasePDFGenerator:
                                      work_info_font_weight, align='left')
 
         y -= line_spacing
+        # リース期間（折り返し対応）
         self._draw_text_with_weight(c, content_left, y, "リース期間",
                                      work_info_font_weight, align='left')
-        self._draw_text_with_weight(c, content_left + label_width, y, fmt_doc.project_info.contract_period or "",
-                                     work_info_font_weight, align='left')
+        contract_period = fmt_doc.project_info.contract_period or ""
+        # 利用可能な最大幅（コンテンツ右端 - ラベル終了位置 - 余白）
+        max_text_width = content_right - (content_left + label_width) - 5*mm
+        wrapped_lines = self._wrap_text(c, contract_period, max_text_width)
+        for i, line in enumerate(wrapped_lines):
+            self._draw_text_with_weight(c, content_left + label_width, y - (i * line_spacing * 0.85), line,
+                                         work_info_font_weight, align='left')
+        # 複数行の場合、追加分のスペースを確保
+        if len(wrapped_lines) > 1:
+            y -= line_spacing * 0.85 * (len(wrapped_lines) - 1)
 
         y -= line_spacing
+        # 決済条件（折り返し対応）
+        payment_terms = fmt_doc.metadata.get('payment_terms', '本紙記載内容のみ有効とする。')
         self._draw_text_with_weight(c, content_left, y, "決済条件",
                                      work_info_font_weight, align='left')
-        self._draw_text_with_weight(c, content_left + label_width, y, "本紙記載内容のみ有効とする。",
-                                     work_info_font_weight, align='left')
+        wrapped_lines = self._wrap_text(c, payment_terms, max_text_width)
+        for i, line in enumerate(wrapped_lines):
+            self._draw_text_with_weight(c, content_left + label_width, y - (i * line_spacing * 0.85), line,
+                                         work_info_font_weight, align='left')
+        if len(wrapped_lines) > 1:
+            y -= line_spacing * 0.85 * (len(wrapped_lines) - 1)
 
         y -= line_spacing
+        # 備考（折り返し対応）
+        remarks = fmt_doc.metadata.get('remarks', '法定福利費を含む。')
         self._draw_text_with_weight(c, content_left, y, "備　　　考",
                                      work_info_font_weight, align='left')
-        self._draw_text_with_weight(c, content_left + label_width, y, "法定福利費を含む。",
-                                     work_info_font_weight, align='left')
+        wrapped_lines = self._wrap_text(c, remarks, max_text_width)
+        for i, line in enumerate(wrapped_lines):
+            self._draw_text_with_weight(c, content_left + label_width, y - (i * line_spacing * 0.85), line,
+                                         work_info_font_weight, align='left')
+        if len(wrapped_lines) > 1:
+            y -= line_spacing * 0.85 * (len(wrapped_lines) - 1)
 
         # 会社情報（左寄せ）
         company_name_font_size = 18.0
@@ -422,8 +498,27 @@ class EcoleasePDFGenerator:
         c.line(stamp_x, border_y, stamp_x + stamp_width_val, border_y)
 
     def _create_detail_pages(self, c, fmt_doc: FMTDocument):
-        """見積内訳明細書ページ（2ページ目以降、横向き）"""
+        """見積内訳明細書ページ（2ページ目以降、横向き）
 
+        参照見積書の構造に合わせて：
+        - 1ページ目：サマリー（大項目のみ）
+        - 2ページ目以降：各大項目の詳細
+        """
+
+        # 1. サマリーページ（大項目のみ）
+        self._create_summary_page(c, fmt_doc)
+
+        # 2. 各大項目の詳細ページ
+        level_0_items = [item for item in fmt_doc.estimate_items if item.level == 0]
+
+        current_page = 2  # サマリーが1ページ目、詳細は2ページ目から
+        for main_item in level_0_items:
+            c.showPage()  # 新しいページ
+            pages_added = self._create_detail_page_for_item(c, fmt_doc, main_item, current_page)
+            current_page += pages_added
+
+    def _create_summary_page(self, c, fmt_doc: FMTDocument):
+        """サマリーページ（大項目のみ）"""
         lwidth, lheight = landscape(A4)
 
         # タイトル
@@ -432,7 +527,7 @@ class EcoleasePDFGenerator:
         title_text = "見　積　内　訳　明　細　書"
         c.drawCentredString(lwidth / 2, title_y, title_text)
 
-        # タイトル下線（タイトル文字の幅に合わせる）
+        # タイトル下線
         title_width = c.stringWidth(title_text, self.font_name, 14)
         line_start = (lwidth - title_width) / 2
         line_end = line_start + title_width
@@ -449,29 +544,29 @@ class EcoleasePDFGenerator:
         # ヘッダー
         table_data.append(['No', '名　　　称', '仕　　　様', '数　量', '単位', '単　　価', '金　　額', '摘　　要'])
 
-        # プロジェクトタイトル行（結合セル）
+        # プロジェクトタイトル行
         project_name = fmt_doc.project_info.project_name
         table_data.append(['', project_name, '', '', '', '', '', ''])
 
         # 空行
         table_data.append(['', '', '', '', '', '', '', ''])
 
-        # 大項目のみ（level=0）を表示
+        # 大項目のみ表示
         for item in fmt_doc.estimate_items:
             if item.level == 0:
                 row = [
-                    item.item_no,
+                    item.item_no if item.item_no else '',
                     item.name,
                     '',
                     '1',
                     '式',
                     '',
-                    f"{int(item.amount):,}",
+                    f"{int(item.amount):,}" if item.amount is not None else "",
                     ''
                 ]
                 table_data.append(row)
 
-        # 空行を追加（合計20行程度にする）
+        # 空行を追加（20行程度まで）
         while len(table_data) < 20:
             table_data.append(['', '', '', '', '', '', '', ''])
 
@@ -480,6 +575,106 @@ class EcoleasePDFGenerator:
         table_data.append(['', '総　　　計', '', '', '', '', f"{int(total_amount):,}", ''])
 
         # テーブル描画
+        self._draw_table(c, table_data, lwidth, lheight)
+
+    def _create_detail_page_for_item(self, c, fmt_doc: FMTDocument, main_item, start_page):
+        """特定の大項目の詳細ページを作成（複数ページ対応）
+
+        Returns:
+            int: 作成したページ数
+        """
+        lwidth, lheight = landscape(A4)
+
+        # その大項目とその子項目を収集
+        start_idx = fmt_doc.estimate_items.index(main_item)
+        detail_items = [main_item]
+
+        # 次のlevel=0までの全項目を収集
+        for i in range(start_idx + 1, len(fmt_doc.estimate_items)):
+            if fmt_doc.estimate_items[i].level == 0:
+                break
+            detail_items.append(fmt_doc.estimate_items[i])
+
+        # 1ページあたりの最大データ行数（ヘッダー3行 + 小計1行 = 4行を除く）
+        max_rows_per_page = 22
+
+        # ページ分割
+        total_pages = (len(detail_items) + max_rows_per_page - 1) // max_rows_per_page
+        pages_created = 0
+
+        for page_start in range(0, len(detail_items), max_rows_per_page):
+            if page_start > 0:
+                c.showPage()  # 2ページ目以降は改ページ
+
+            page_items = detail_items[page_start:page_start + max_rows_per_page]
+
+            # ページヘッダー
+            self._draw_page_header(c, fmt_doc, lwidth, lheight, pages_created + 1, total_pages)
+
+            # テーブルデータ
+            table_data = []
+
+            # ヘッダー
+            table_data.append(['No', '名　　　称', '仕　　　様', '数　量', '単位', '単　　価', '金　　額', '摘　　要'])
+
+            # 1ページ目のみ：大項目名を表示
+            if page_start == 0:
+                table_data.append(['', main_item.name, '', '', '', '', '', ''])
+                table_data.append(['', '', '', '', '', '', '', ''])
+
+            # 詳細項目
+            for item in page_items:
+                if item.level == 0:
+                    continue  # 大項目自体はスキップ（上で表示済み）
+
+                indent = "　" * item.level
+                indented_name = f"{indent}{item.name}"
+
+                row = [
+                    item.item_no if item.item_no else '',
+                    indented_name,
+                    item.specification if item.specification else '',
+                    str(item.quantity) if item.quantity is not None else '',
+                    item.unit if item.unit else '',
+                    f"{int(item.unit_price):,}" if item.unit_price is not None else "",
+                    f"{int(item.amount):,}" if item.amount is not None else "",
+                    ''
+                ]
+                table_data.append(row)
+
+            # 最終ページのみ：小計行
+            if page_start + max_rows_per_page >= len(detail_items):
+                subtotal = main_item.amount if main_item.amount else 0
+                table_data.append(['', '小　　　計', '', '', '', '', f"{int(subtotal):,}", ''])
+
+            # テーブル描画
+            current_page_no = start_page + pages_created
+            self._draw_table(c, table_data, lwidth, lheight, current_page_no)
+
+            pages_created += 1
+
+        return pages_created
+
+    def _draw_page_header(self, c, fmt_doc, lwidth, lheight, page_num, total_pages):
+        """ページヘッダー描画"""
+        c.setFont(self.font_name, 14)
+        title_y = lheight - 15*mm
+        title_text = "見　積　内　訳　明　細　書"
+        c.drawCentredString(lwidth / 2, title_y, title_text)
+
+        # タイトル下線
+        title_width = c.stringWidth(title_text, self.font_name, 14)
+        line_start = (lwidth - title_width) / 2
+        line_end = line_start + title_width
+        c.line(line_start, title_y - 2.5*mm, line_end, title_y - 2.5*mm)
+
+        # 見積番号
+        c.setFont(self.font_name, 9)
+        quote_no = fmt_doc.metadata.get('quote_no', 'XXXXXXX-00')
+        c.drawString(25*mm, lheight - 25*mm, f"({quote_no})")
+
+    def _draw_table(self, c, table_data, lwidth, lheight, page_no=1):
+        """テーブル描画"""
         col_widths = [18*mm, 60*mm, 50*mm, 20*mm, 15*mm, 25*mm, 28*mm, 42*mm]
 
         table = Table(table_data, colWidths=col_widths, rowHeights=6.5*mm)
@@ -493,10 +688,6 @@ class EcoleasePDFGenerator:
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
 
-            # プロジェクトタイトル行（2行目）を結合
-            ('SPAN', (1, 1), (3, 1)),
-            ('FONTSIZE', (1, 1), (1, 1), 9),
-
             # 数値列右寄せ
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),
             ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
@@ -507,7 +698,7 @@ class EcoleasePDFGenerator:
             ('LINEABOVE', (0, 0), (-1, 0), 1, colors.black),
             ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
 
-            # 最終行（総計）
+            # 最終行（総計/小計）
             ('LINEABOVE', (0, -1), (-1, -1), 1, colors.black),
             ('FONTSIZE', (0, -1), (-1, -1), 9),
             ('ALIGN', (1, -1), (1, -1), 'CENTER'),
@@ -521,4 +712,4 @@ class EcoleasePDFGenerator:
         # フッター
         c.setFont(self.font_name, 8)
         c.drawString(25*mm, 12*mm, "株式会社　　エコリース")
-        c.drawRightString(lwidth - 25*mm, 12*mm, "No　1")
+        c.drawRightString(lwidth - 25*mm, 12*mm, f"No　{page_no}")
