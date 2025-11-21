@@ -112,7 +112,8 @@ fmt_doc = FMTDocument(
 
 # PDF生成
 pdf_gen = EcoleasePDFGenerator()
-output_path = "./output/template_test.pdf"
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+output_path = f"./output/template_test_{timestamp}.pdf"
 
 import os
 os.makedirs("./output", exist_ok=True)
