@@ -1,175 +1,177 @@
-# Ecolease PoC - 入札見積自動化システム
+# 見積生成デモ - AI見積書自動生成システム
 
-入札書類から自動的に見積書を生成するPoC（概念実証）システムです。
+入札仕様書PDFから見積書を自動生成するデモシステムです。
 
-## 🎯 目標
+## 概要
 
-- **処理時間**: 5分以内
-- **完成度**: 70%以上
-- **対応工事区分**: 電気、機械、空調、衛生、ガス、消防
+- 仕様書PDFをアップロードするだけで見積書を自動生成
+- 過去見積の単価データベース（KB）から単価を自動マッチング
+- PDF/Excel形式で見積書を出力
 
-## 🏗️ システム構成
+## クイックスタート
 
-```
-入札仕様書PDF → 解析 → FMT正規化 → 分類 → RAG検索 → 見積生成 → Excel出力
-```
-
-### 主要コンポーネント
-
-1. **Document Ingestor** - PDF/DOCXからテキスト・テーブルを抽出
-2. **FMT Normalizer** - 社内統一フォーマット（FMT）に変換
-3. **Classifier** - 施設区分・工事区分を自動分類
-4. **Price RAG** - 過去見積から類似価格を検索（FAISS + BGE-M3）
-5. **Estimate Generator** - **Claude Sonnet 4.5**で見積項目を生成
-6. **Exporter** - Excel形式で見積書を出力（送付状・御見積書・明細書）
-
-## 📋 必要要件
-
-- Python 3.10+
-- **Anthropic API キー**（Claude API）
-- 8GB以上のメモリ推奨
-
-## 🚀 セットアップ
-
-### 1. 依存パッケージのインストール
+### 1. 環境構築
 
 ```bash
+# 依存パッケージのインストール
 pip install -r requirements.txt
-```
 
-### 2. Claude API キーの設定
-
-`.env`ファイルを作成:
-
-```bash
+# 環境変数の設定
 cp .env.example .env
 ```
 
-`.env`ファイルを編集してClaude APIキーを設定:
+`.env`ファイルを編集してAPIキーを設定:
 
 ```env
-ANTHROPIC_API_KEY=your-claude-api-key-here
+ANTHROPIC_API_KEY=your-api-key-here
 CLAUDE_MODEL=claude-sonnet-4-5-20250929
 ```
 
-**Claude APIキーの取得方法**:
-1. https://console.anthropic.com/ にアクセス
-2. アカウントを作成
-3. API Keysセクションでキーを生成
-
-### 3. Streamlitアプリの起動
+### 2. アプリ起動
 
 ```bash
 streamlit run app.py
 ```
 
-ブラウザで `http://localhost:8501` にアクセス
+ブラウザで http://localhost:8501 にアクセス
 
-## 📖 使い方
+## 機能一覧
 
-### Webインターフェース（推奨）
+### 見積書作成
 
-1. Streamlitアプリを起動
-2. 入札仕様書PDFをアップロード
-3. 「処理開始」ボタンをクリック
-4. 見積内容を確認
-5. Excel形式でダウンロード
+仕様書PDFから見積書を自動生成します。
 
-### サンプルで試す
+1. 仕様書PDFをアップロード
+2. 生成モードを選択（AI自動生成 / 参照見積ベース）
+3. 「生成開始」をクリック
+4. PDF/Excelをダウンロード
 
-テストファイルが含まれています:
+### 単価データベース
+
+過去の見積書から単価を抽出してナレッジベース（KB）を構築します。
+
+- Excel/PDF見積書のアップロード
+- 単価の自動抽出・カテゴリ分類
+- KBの閲覧・編集・エクスポート
+
+### 法令データベース
+
+関係法令の管理機能です（準備中）。
+
+### 利用状況
+
+API利用状況とコストの確認ができます。
+
+## ディレクトリ構成
+
+```
+aice-demo-eco-lease/
+├── app.py                 # エントリーポイント
+├── pages/
+│   ├── 1.py               # 見積書作成
+│   ├── 2.py               # 単価データベース
+│   ├── 3.py               # 法令データベース
+│   └── 4.py               # 利用状況
+├── pipelines/
+│   ├── schemas.py         # データスキーマ
+│   ├── kb_builder.py      # KB構築
+│   ├── estimate_generator_ai.py  # AI見積生成
+│   ├── export.py          # PDF/Excel出力
+│   └── ...
+├── kb/
+│   └── price_kb.json      # 単価KB
+├── output/                # 生成ファイル出力先
+└── test-files/            # テスト用ファイル
+```
+
+## 技術仕様
+
+### 使用技術
+
+| 項目 | 技術 |
+|------|------|
+| LLM | Claude Sonnet 4.5 |
+| PDF処理 | PyPDF2, pdf2image |
+| OCR | Claude Vision API |
+| UI | Streamlit |
+| 出力 | ReportLab (PDF), openpyxl (Excel) |
+
+### 処理フロー
+
+```
+仕様書PDF
+    │
+    ├─ テキスト抽出（PyPDF2）
+    │      └─ 失敗時: OCR（Claude Vision）
+    │
+    ├─ 建物情報抽出（Claude API）
+    │      └─ 面積、階数、部屋数、ガス栓数等
+    │
+    ├─ 見積項目生成（Claude API）
+    │      └─ 工事区分別に詳細項目を設計
+    │
+    ├─ KB単価照合
+    │      ├─ 類似度計算
+    │      ├─ 単位互換性チェック
+    │      └─ 単価妥当性チェック
+    │
+    └─ 見積書出力（PDF/Excel）
+```
+
+### KB単価マッチング
+
+詳細は `docs/KB_MATCHING_FLOW.md` を参照してください。
+
+## 設定
+
+### 環境変数
+
+| 変数名 | 説明 | 必須 |
+|--------|------|------|
+| ANTHROPIC_API_KEY | Claude APIキー | Yes |
+| CLAUDE_MODEL | 使用モデル名 | No (default: claude-sonnet-4-5-20250929) |
+
+### APIキーの取得
+
+1. https://console.anthropic.com/ にアクセス
+2. アカウント作成
+3. API Keysセクションでキーを生成
+
+## テスト
+
+テスト用の仕様書が含まれています:
 
 ```
 test-files/仕様書【都立山崎高等学校仮設校舎等の借入れ】.pdf
 ```
 
-期待される出力:
-- 施設区分: 学校
-- 工事区分: 電気、空調、衛生など
-- 見積項目: 40-60項目程度
-- 処理時間: 1-3分
+## トラブルシューティング
 
-## 📁 プロジェクト構成
-
-```
-ecolease-poc/
-├── app.py                  # Streamlit UI
-├── requirements.txt        # 依存パッケージ
-├── .env.example           # 環境変数サンプル
-├── README.md              # このファイル
-├── configs/
-│   └── config.yaml        # システム設定
-├── pipelines/
-│   ├── schemas.py         # データスキーマ
-│   ├── ingest.py          # PDF解析
-│   ├── normalize.py       # FMT正規化
-│   ├── classify.py        # 分類
-│   ├── rag_price.py       # 価格RAG
-│   ├── estimate.py        # 見積生成（Claude使用）
-│   └── export.py          # Excel出力
-├── kb/                    # 過去見積データ
-├── output/                # 生成ファイル
-└── test-files/           # テストファイル
-```
-
-## 🔧 Dockerで実行
+### アプリが起動しない
 
 ```bash
-# ビルド & 起動
-docker-compose up
-
-# ブラウザで http://localhost:8501 にアクセス
+# ポートが使用中の場合
+lsof -ti:8501 | xargs kill -9
+streamlit run app.py
 ```
 
-## 💡 技術スタック
+### KBが読み込めない
 
-- **LLM**: Claude Sonnet 4.5（Anthropic最新モデル）
-- **PDF処理**: PyMuPDF, pdfplumber
-- **埋め込み**: BGE-M3
-- **ベクトルDB**: FAISS
-- **UI**: Streamlit
-- **出力**: openpyxl (Excel)
+`kb/price_kb.json`が空または破損している場合:
 
-## 📊 データフロー
-
-```
-入札仕様書PDF
-    ↓
-[PDF解析] テキスト・テーブル抽出
-    ↓
-[FMT正規化] 案件情報・建物仕様を構造化
-    ↓
-[分類] 施設区分・工事区分を判定
-    ↓
-[Claude + RAG] 見積項目生成・価格推定
-    ↓
-[Excel出力] 送付状・御見積書・明細書
+```bash
+echo "[]" > kb/price_kb.json
 ```
 
-## 🔧 カスタマイズ
+### APIエラー
 
-### 過去見積データの追加
+- APIキーが正しく設定されているか確認
+- API利用制限に達していないか確認
 
-`kb/past_estimates/`にExcelファイルを配置:
+## ライセンス
 
-| 項目名 | 仕様 | 単価 | 単位 | 案件名 | 日付 | 工事区分 |
-|--------|------|------|------|--------|------|----------|
-| LED照明 | 40W | 15000 | 台 | 〇〇学校 | 2024-01-15 | 電気 |
+社内使用のみ
 
-### LLMモデルの変更
-
-`.env`ファイルで変更可能:
-
-```env
-CLAUDE_MODEL=claude-sonnet-4-5-20250929  # 最新モデル（推奨）
-# または
-CLAUDE_MODEL=claude-3-5-sonnet-20241022  # 前バージョン
-```
-
-## 📝 ライセンス
-
-Proprietary - Ecolease社内使用のみ
-
-## 🤝 サポート
+## サポート
 
 問題が発生した場合は開発チームまでお問い合わせください。
