@@ -11493,5 +11493,402 @@
       "給排水",
       "配管"
     ]
+  },
+  {
+    "item_id": "ELEC_NEW_001",
+    "description": "放送スピーカー",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 8500,
+    "features": {
+      "specification": "天井埋込型"
+    },
+    "context_tags": [
+      "放送",
+      "弱電"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_002",
+    "description": "テレビアンテナ",
+    "discipline": "電気設備工事",
+    "unit": "基",
+    "unit_price": 45000,
+    "features": {
+      "specification": "UHF/BS混合"
+    },
+    "context_tags": [
+      "テレビ",
+      "弱電"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_003",
+    "description": "テレビユニット",
+    "discipline": "電気設備工事",
+    "unit": "箇所",
+    "unit_price": 8500,
+    "features": {
+      "specification": "直列ユニット"
+    },
+    "context_tags": [
+      "テレビ",
+      "弱電"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_004",
+    "description": "テレビ端子",
+    "discipline": "電気設備工事",
+    "unit": "箇所",
+    "unit_price": 5500,
+    "features": {
+      "specification": "壁付"
+    },
+    "context_tags": [
+      "テレビ",
+      "弱電"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_005",
+    "description": "発信機",
+    "discipline": "消防設備工事",
+    "unit": "個",
+    "unit_price": 18000,
+    "features": {
+      "specification": "P型1級"
+    },
+    "context_tags": [
+      "消防",
+      "火災報知"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_006",
+    "description": "地区音響装置",
+    "discipline": "消防設備工事",
+    "unit": "個",
+    "unit_price": 15000,
+    "features": {
+      "specification": "地区ベル"
+    },
+    "context_tags": [
+      "消防",
+      "火災報知"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_007",
+    "description": "キュービクル周囲フェンス",
+    "discipline": "電気設備工事",
+    "unit": "m",
+    "unit_price": 25000,
+    "features": {
+      "specification": "メッシュフェンス H=1800"
+    },
+    "context_tags": [
+      "受変電",
+      "フェンス"
+    ]
+  },
+  {
+    "item_id": "ELEC_NEW_008",
+    "description": "フェンス",
+    "discipline": "電気設備工事",
+    "unit": "m",
+    "unit_price": 18000,
+    "features": {
+      "specification": "メッシュフェンス"
+    },
+    "context_tags": [
+      "フェンス"
+    ]
+  },
+  {
+    "item_id": "MECH_NEW_001",
+    "description": "排水ピット・排水ポンプ",
+    "discipline": "機械設備工事",
+    "unit": "箇所",
+    "unit_price": 250000,
+    "features": {
+      "specification": "汚水用"
+    },
+    "context_tags": [
+      "給排水",
+      "ポンプ"
+    ]
+  },
+  {
+    "item_id": "MECH_NEW_002",
+    "description": "手洗器",
+    "discipline": "機械設備工事",
+    "unit": "台",
+    "unit_price": 45000,
+    "features": {
+      "specification": "壁付自動水栓付"
+    },
+    "context_tags": [
+      "衛生器具"
+    ]
+  },
+  {
+    "item_id": "MECH_NEW_003",
+    "description": "消火配管",
+    "discipline": "消防設備工事",
+    "unit": "m",
+    "unit_price": 8500,
+    "features": {
+      "specification": "配管用炭素鋼管"
+    },
+    "context_tags": [
+      "消火",
+      "配管"
+    ]
+  },
+  {
+    "item_id": "MECH_NEW_004",
+    "description": "据置型電気式オーブン",
+    "discipline": "機械設備工事",
+    "unit": "台",
+    "unit_price": 350000,
+    "features": {
+      "specification": "業務用"
+    },
+    "context_tags": [
+      "厨房機器"
+    ]
+  },
+  {
+    "item_id": "MECH_NEW_005",
+    "description": "スプリンクラー",
+    "discipline": "消防設備工事",
+    "unit": "式",
+    "unit_price": 2500000,
+    "features": {
+      "specification": "閉鎖型湿式"
+    },
+    "context_tags": [
+      "消火"
+    ]
+  },
+  {
+    "item_id": "MECH_NEW_006",
+    "description": "塗装工事",
+    "discipline": "機械設備工事",
+    "unit": "式",
+    "unit_price": 350000,
+    "features": {
+      "specification": "配管塗装"
+    },
+    "context_tags": [
+      "塗装"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_001",
+    "description": "既存武道場への配管接続",
+    "discipline": "ガス設備工事",
+    "unit": "箇所",
+    "unit_price": 180000,
+    "features": {
+      "specification": "既存配管接続"
+    },
+    "context_tags": [
+      "ガス",
+      "接続"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_002",
+    "description": "ガス栓",
+    "discipline": "ガス設備工事",
+    "unit": "箇所",
+    "unit_price": 8500,
+    "features": {
+      "specification": "ヒューズガス栓"
+    },
+    "context_tags": [
+      "ガス"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_003",
+    "description": "ガス湯沸器",
+    "discipline": "ガス設備工事",
+    "unit": "台",
+    "unit_price": 85000,
+    "features": {
+      "specification": "瞬間式"
+    },
+    "context_tags": [
+      "ガス",
+      "給湯"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_004",
+    "description": "ガス管気密試験",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 120000,
+    "features": {
+      "specification": "耐圧試験含む"
+    },
+    "context_tags": [
+      "ガス",
+      "試験"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_005",
+    "description": "カラー鋼管",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 450000,
+    "features": {
+      "specification": "材工共"
+    },
+    "context_tags": [
+      "ガス",
+      "配管"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_006",
+    "description": "PE管（ポリエチレン管）",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 380000,
+    "features": {
+      "specification": "屋外埋設"
+    },
+    "context_tags": [
+      "ガス",
+      "配管"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_007",
+    "description": "フレキ管",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 85000,
+    "features": {
+      "specification": "フレキシブル管"
+    },
+    "context_tags": [
+      "ガス",
+      "配管"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_008",
+    "description": "分岐コック",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 65000,
+    "features": {
+      "specification": "一式"
+    },
+    "context_tags": [
+      "ガス"
+    ]
+  },
+  {
+    "item_id": "GAS_NEW_009",
+    "description": "ボールバルブ",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 55000,
+    "features": {
+      "specification": "一式"
+    },
+    "context_tags": [
+      "ガス"
+    ]
+  },
+  {
+    "item_id": "AC_NEW_001",
+    "description": "冷暖房設備",
+    "discipline": "空調設備工事",
+    "unit": "式",
+    "unit_price": 3500000,
+    "features": {
+      "specification": "エアコン一式"
+    },
+    "context_tags": [
+      "空調"
+    ]
+  },
+  {
+    "item_id": "AC_NEW_002",
+    "description": "全熱交換機設備",
+    "discipline": "空調設備工事",
+    "unit": "式",
+    "unit_price": 1800000,
+    "features": {
+      "specification": "換気設備"
+    },
+    "context_tags": [
+      "空調",
+      "換気"
+    ]
+  },
+  {
+    "item_id": "AC_NEW_003",
+    "description": "空調機制御設備",
+    "discipline": "空調設備工事",
+    "unit": "式",
+    "unit_price": 850000,
+    "features": {
+      "specification": "集中制御"
+    },
+    "context_tags": [
+      "空調",
+      "制御"
+    ]
+  },
+  {
+    "item_id": "SAN_NEW_001",
+    "description": "配管材料",
+    "discipline": "衛生設備工事",
+    "unit": "式",
+    "unit_price": 650000,
+    "features": {
+      "specification": "給排水配管材"
+    },
+    "context_tags": [
+      "衛生",
+      "配管"
+    ]
+  },
+  {
+    "item_id": "FIRE_NEW_001",
+    "description": "自動火災報知設備",
+    "discipline": "消防設備工事",
+    "unit": "式",
+    "unit_price": 2800000,
+    "features": {
+      "specification": "P型1級受信機"
+    },
+    "context_tags": [
+      "消防",
+      "火災報知"
+    ]
+  },
+  {
+    "item_id": "FIRE_NEW_002",
+    "description": "避難器具",
+    "discipline": "消防設備工事",
+    "unit": "台",
+    "unit_price": 180000,
+    "features": {
+      "specification": "救助袋または緩降機"
+    },
+    "context_tags": [
+      "消防",
+      "避難"
+    ]
   }
 ]
