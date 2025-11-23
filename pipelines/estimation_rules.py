@@ -625,6 +625,185 @@ class EstimationChecker:
         logger.info(f"Generated {len(new_items)} missing items for {discipline.value}")
         return new_items
 
+    def correct_underpriced_estimate(
+        self,
+        items: List[EstimateItem],
+        discipline: DisciplineType,
+        building_type: str,
+        floor_area: float,
+        correction_method: str = "adjustment_item"
+    ) -> Dict[str, Any]:
+        """
+        ㎡単価が下限を下回る場合に補正を行う
+
+        Args:
+            items: 見積項目リスト
+            discipline: 工事区分
+            building_type: 建物タイプ
+            floor_area: 延床面積（㎡）
+            correction_method: 補正方法
+                - "adjustment_item": 調整項目を追加
+                - "overhead_increase": 諸経費率を上げる
+                - "none": 補正しない（検証のみ）
+
+        Returns:
+            {
+                "corrected": True/False,
+                "correction_item": EstimateItem or None,
+                "shortage_amount": 金額,
+                "validation": validate_unit_price結果
+            }
+        """
+        # 現在の㎡単価を検証
+        validation = self.validate_unit_price(items, discipline, building_type, floor_area)
+
+        if validation.get("is_valid", True):
+            return {
+                "corrected": False,
+                "correction_item": None,
+                "shortage_amount": 0,
+                "validation": validation,
+                "message": "㎡単価は適正範囲内です。補正不要。"
+            }
+
+        # 下限を下回っている場合のみ補正
+        actual_price = validation.get("actual_unit_price", 0)
+        min_price = validation.get("expected_range", {}).get("min", 0)
+
+        if actual_price >= min_price:
+            return {
+                "corrected": False,
+                "correction_item": None,
+                "shortage_amount": 0,
+                "validation": validation,
+                "message": "㎡単価が上限を超えていますが、自動補正は行いません。"
+            }
+
+        # 不足金額を計算
+        shortage_per_sqm = min_price - actual_price
+        shortage_amount = shortage_per_sqm * floor_area
+
+        logger.info(
+            f"㎡単価補正: {discipline.value} - "
+            f"現在¥{actual_price:,.0f}/㎡ → 目標¥{min_price:,}/㎡, "
+            f"不足額¥{shortage_amount:,.0f}"
+        )
+
+        if correction_method == "none":
+            return {
+                "corrected": False,
+                "correction_item": None,
+                "shortage_amount": shortage_amount,
+                "validation": validation,
+                "message": f"補正が必要です（不足額: ¥{shortage_amount:,.0f}）"
+            }
+
+        # 調整項目を作成
+        correction_item = EstimateItem(
+            item_no="ADJ",
+            name="見積調整費",
+            specification=f"㎡単価調整（¥{shortage_per_sqm:,.0f}/㎡ × {floor_area:,.0f}㎡）",
+            quantity=1,
+            unit="式",
+            unit_price=shortage_amount,
+            amount=shortage_amount,
+            level=1,
+            discipline=discipline,
+            cost_type="諸経費",
+            confidence=0.7,
+            source_type="adjustment",
+            source_reference=f"㎡単価下限補正: {min_price:,}円/㎡",
+            estimation_basis=f"建物タイプ「{building_type}」の{discipline.value}㎡単価下限に基づく調整"
+        )
+
+        return {
+            "corrected": True,
+            "correction_item": correction_item,
+            "shortage_amount": shortage_amount,
+            "shortage_per_sqm": shortage_per_sqm,
+            "validation": validation,
+            "message": f"㎡単価補正項目を追加しました（¥{shortage_amount:,.0f}）"
+        }
+
+    def apply_all_corrections(
+        self,
+        items: List[EstimateItem],
+        discipline: DisciplineType,
+        building_type: str,
+        floor_area: float,
+        auto_correct: bool = True
+    ) -> Dict[str, Any]:
+        """
+        全ての補正を適用し、結果をまとめる
+
+        Args:
+            items: 見積項目リスト
+            discipline: 工事区分
+            building_type: 建物タイプ
+            floor_area: 延床面積
+            auto_correct: 自動補正を行うかどうか
+
+        Returns:
+            {
+                "original_amount": 元の合計,
+                "corrected_amount": 補正後の合計,
+                "corrections": [補正内容リスト],
+                "items_added": [追加された項目],
+                "validation_before": 補正前の検証結果,
+                "validation_after": 補正後の検証結果
+            }
+        """
+        # 元の合計を計算
+        original_amount = sum(item.amount or 0 for item in items if item.level == 0)
+
+        # 検証
+        validation_before = self.validate_unit_price(items, discipline, building_type, floor_area)
+
+        corrections = []
+        items_added = []
+
+        if auto_correct and not validation_before.get("is_valid", True):
+            # ㎡単価補正
+            correction_result = self.correct_underpriced_estimate(
+                items, discipline, building_type, floor_area,
+                correction_method="adjustment_item"
+            )
+
+            if correction_result.get("corrected"):
+                corrections.append({
+                    "type": "unit_price_adjustment",
+                    "amount": correction_result["shortage_amount"],
+                    "message": correction_result["message"]
+                })
+                items_added.append(correction_result["correction_item"])
+
+        # 補正後の合計
+        added_amount = sum(item.amount or 0 for item in items_added)
+        corrected_amount = original_amount + added_amount
+
+        # 補正後の検証（仮想的に）
+        validation_after = {
+            **validation_before,
+            "actual_unit_price": corrected_amount / floor_area if floor_area > 0 else 0,
+            "total_amount": corrected_amount,
+        }
+        if floor_area > 0:
+            new_price = corrected_amount / floor_area
+            expected = validation_before.get("expected_range", {})
+            validation_after["is_valid"] = expected.get("min", 0) <= new_price <= expected.get("max", 999999)
+            validation_after["message"] = f"補正後㎡単価: ¥{new_price:,.0f}/㎡"
+
+        return {
+            "discipline": discipline.value,
+            "original_amount": original_amount,
+            "corrected_amount": corrected_amount,
+            "correction_total": added_amount,
+            "corrections": corrections,
+            "items_added": items_added,
+            "validation_before": validation_before,
+            "validation_after": validation_after,
+        }
+
 
 # =============================================================================
 # ユーティリティ関数

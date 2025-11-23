@@ -269,6 +269,24 @@ SYNONYM_DICT = {
     "ボールバルブ": ["ボール弁", "ボールスライドジョイント", "BSJ"],
     "ガスメーター": ["メーター", "マイコンメーター", "計量器"],
     "ガス漏れ警報器": ["ガス警報器", "ガス検知器", "警報器"],
+    # 電気設備 - 追加
+    "照明配線": ["電灯配線", "照明回路", "電灯回路", "照明工事"],
+    "コンセント配線": ["コンセント回路", "コンセント工事"],
+    "接地": ["接地工事", "アース工事", "アース", "接地極", "A種接地", "B種接地", "C種接地", "D種接地"],
+    "避雷針": ["避雷設備", "雷保護", "避雷導体"],
+    "避雷導線": ["避雷導体", "接地導線"],
+    # 機械設備 - 追加
+    "全熱交換機": ["全熱交換器", "ロスナイ", "熱交換換気", "熱交換ユニット", "HRV", "ERV", "換気ユニット"],
+    "配管支持金物": ["配管支持金具", "支持金物", "支持金具", "サポート", "配管サポート", "バンド"],
+    "ドレン配管": ["ドレン管", "排水管", "結露水配管", "ドレンホース"],
+    "冷媒配管": ["冷媒管", "ペアコイル", "被覆銅管", "冷媒チューブ"],
+    "給水栓": ["蛇口", "水栓", "カラン", "給水口"],
+    "エレベーター": ["昇降機", "EV", "リフト"],
+    # ガス設備 - 追加
+    "緊急遮断弁": ["遮断弁", "緊急弁", "ガス遮断弁", "安全弁"],
+    "ヒューズコック": ["ヒューズガス栓", "過流出防止弁", "ヒューズ付コック"],
+    "配管保温": ["保温工事", "保温材", "グラスウール", "保温被覆"],
+    "舗装復旧": ["アスファルト復旧", "道路復旧", "舗装工事", "復旧工事"],
     # 共通 - 仮設・諸経費
     "諸経費": ["一般管理費", "現場管理費", "共通仮設費"],
     "足場": ["枠組足場", "単管足場", "移動式足場", "ローリングタワー"],
@@ -2756,6 +2774,24 @@ JSON配列形式で出力してください：
             unit_price_checks[disc.value] = check
             logger.info(f"Unit price validation for {disc.value}: {check['message']}")
 
+        # 6. ㎡単価補正（下限を下回る場合に調整項目を追加）
+        correction_results = {}
+        for disc in [DisciplineType.ELECTRICAL, DisciplineType.MECHANICAL, DisciplineType.GAS]:
+            disc_items = [item for item in estimate_items if item.discipline == disc]
+            correction = checker.apply_all_corrections(
+                disc_items, disc, "学校", floor_area, auto_correct=True
+            )
+            correction_results[disc.value] = correction
+
+            # 補正項目があれば追加
+            if correction.get("items_added"):
+                for correction_item in correction["items_added"]:
+                    estimate_items.append(correction_item)
+                    logger.info(
+                        f"Added correction item for {disc.value}: "
+                        f"¥{correction['correction_total']:,.0f}"
+                    )
+
         fmt_doc = FMTDocument(
             created_at=datetime.now().isoformat(),
             project_info=project_info,
@@ -2769,6 +2805,14 @@ JSON配列形式で出力してください：
                 "building_info": building_info.get("building_info", {}),
                 "checklist_coverage": coverage_results,
                 "unit_price_checks": unit_price_checks,
+                "correction_results": {
+                    k: {
+                        "original_amount": v.get("original_amount", 0),
+                        "corrected_amount": v.get("corrected_amount", 0),
+                        "correction_total": v.get("correction_total", 0),
+                        "corrected": v.get("correction_total", 0) > 0
+                    } for k, v in correction_results.items()
+                },
             }
         )
 
