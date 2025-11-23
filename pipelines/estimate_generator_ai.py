@@ -302,6 +302,14 @@ SYNONYM_DICT = {
     "養生": ["床養生", "壁養生", "防護", "シート養生"],
     "産業廃棄物処分": ["産廃処分", "廃棄物処理", "残材処分", "ガラ処分"],
     "運搬費": ["搬入費", "搬出費", "資機材運搬", "小運搬"],
+    # 追加同義語（マッチング改善）
+    "HUB": ["スイッチングハブ", "ネットワークスイッチ", "L2スイッチ", "ハブ", "LANハブ", "イーサネットスイッチ"],
+    "スイッチングハブ": ["HUB", "ハブ", "ネットワークスイッチ", "L2スイッチ", "LANスイッチ"],
+    "地区音響装置": ["ベル", "警報ベル", "非常ベル", "地区ベル", "音響装置", "鳴動装置"],
+    "排水ピット": ["排水槽", "汚水槽", "雑排水槽", "ピット", "排水ポンプ槽"],
+    "排水槽": ["排水ピット", "汚水槽", "雑排水槽", "ポンプ槽"],
+    "便所ブース": ["トイレブース", "便所パーティション", "トイレパーティション", "ブース"],
+    "多機能便所": ["多目的トイレ", "バリアフリートイレ", "車椅子トイレ", "多機能トイレ"],
 }
 
 # 高額機器リスト（単価妥当性チェック用）
@@ -330,17 +338,24 @@ HIGH_VALUE_EXCLUDE_KEYWORDS = [
 # これらの項目に高額な単価がマッチした場合は拒否する
 MAX_PRICE_ITEMS = {
     "フェンス": 100000,           # 最大10万円/m
-    "電話機": 50000,              # 最大5万円/台
-    "電話": 100000,               # 最大10万円
+    "電話機": 80000,              # 最大8万円/台（IP電話機等）
     "インターホン": 80000,        # 最大8万円/台
-    "コンセント": 20000,          # 最大2万円/箇所
-    "スイッチ": 10000,            # 最大1万円/個
-    "照明器具": 100000,           # 最大10万円/台
-    "感知器": 30000,              # 最大3万円/個
+    "コンセント": 30000,          # 最大3万円/箇所
+    "照明スイッチ": 15000,        # 照明スイッチ専用、最大1.5万円/個
+    "照明器具": 150000,           # 最大15万円/台
+    "感知器": 50000,              # 最大5万円/個
     "配線": 50000,                # 最大5万円/m
     "ケーブル": 30000,            # 最大3万円/m
     "接続": 500000,               # 最大50万円/式
+    "テレビ端子": 15000,          # 最大1.5万円/箇所
 }
+
+# MAX_PRICE_ITEMSチェックを除外するキーワード
+# 「設備」「工事」「システム」等を含む項目は一式価格なので除外
+MAX_PRICE_EXCLUDE_KEYWORDS = [
+    "設備", "工事", "システム", "装置", "盤", "交換機",
+    "L2スイッチ", "L3スイッチ", "スイッチングハブ", "HUB", "ハブ",
+]
 
 
 # ===== ベクトル検索クラス =====
@@ -765,15 +780,23 @@ class AIEstimateGenerator:
                     return False
 
         # 最大価格チェック（一般項目）- 誤マッチング防止
-        for keyword, max_price in MAX_PRICE_ITEMS.items():
-            keyword_norm = self._normalize_text(keyword)
-            if keyword_norm in item_name_norm:
-                if matched_price > max_price:
-                    logger.warning(
-                        f"Price validation failed: '{item_name}' matched ¥{matched_price:,.0f} "
-                        f"but maximum expected is ¥{max_price:,.0f}"
-                    )
-                    return False
+        # ただし「設備」「工事」等を含む項目は除外（一式価格のため）
+        skip_max_check = False
+        for exclude_kw in MAX_PRICE_EXCLUDE_KEYWORDS:
+            if exclude_kw in item_name:
+                skip_max_check = True
+                break
+
+        if not skip_max_check:
+            for keyword, max_price in MAX_PRICE_ITEMS.items():
+                keyword_norm = self._normalize_text(keyword)
+                if keyword_norm in item_name_norm:
+                    if matched_price > max_price:
+                        logger.warning(
+                            f"Price validation failed: '{item_name}' matched ¥{matched_price:,.0f} "
+                            f"but maximum expected is ¥{max_price:,.0f}"
+                        )
+                        return False
 
         return True
 

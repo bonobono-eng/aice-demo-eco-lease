@@ -11017,5 +11017,411 @@
     ],
     "valid_from": "2025-11-23",
     "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_010",
+    "description": "配線用遮断器",
+    "discipline": "電気設備工事",
+    "unit": "個",
+    "unit_price": 3500,
+    "features": {
+      "note": "MCCB標準"
+    },
+    "context_tags": [
+      "学校",
+      "遮断器",
+      "ブレーカー"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_011",
+    "description": "リモコンスイッチ",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 8500,
+    "features": {
+      "note": "リモコン式スイッチ"
+    },
+    "context_tags": [
+      "学校",
+      "スイッチ",
+      "リモコン"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_020",
+    "description": "電話交換機",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 350000,
+    "features": {
+      "note": "20回線程度"
+    },
+    "context_tags": [
+      "学校",
+      "電話",
+      "交換機"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_021",
+    "description": "電話機",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 15000,
+    "features": {
+      "note": "ビジネスホン"
+    },
+    "context_tags": [
+      "学校",
+      "電話"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_022",
+    "description": "L3スイッチ",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 180000,
+    "features": {
+      "note": "24ポート"
+    },
+    "context_tags": [
+      "学校",
+      "LAN",
+      "ネットワーク"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_023",
+    "description": "HUB",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 25000,
+    "features": {
+      "note": "スイッチングハブ"
+    },
+    "context_tags": [
+      "学校",
+      "LAN",
+      "HUB"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_024",
+    "description": "スイッチングハブ",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 25000,
+    "features": {
+      "note": "8-16ポート"
+    },
+    "context_tags": [
+      "学校",
+      "LAN",
+      "HUB"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_025",
+    "description": "UHFアンテナ",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 35000,
+    "features": {
+      "note": "地デジ用"
+    },
+    "context_tags": [
+      "学校",
+      "アンテナ",
+      "TV"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_026",
+    "description": "BSアンテナ",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 45000,
+    "features": {
+      "note": "BS/CS用"
+    },
+    "context_tags": [
+      "学校",
+      "アンテナ",
+      "TV"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_027",
+    "description": "分配器・分岐器",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 8000,
+    "features": {
+      "note": "TV分配器"
+    },
+    "context_tags": [
+      "学校",
+      "TV"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_028",
+    "description": "地区音響装置",
+    "discipline": "電気設備工事",
+    "unit": "台",
+    "unit_price": 12000,
+    "features": {
+      "note": "チャイム・ベル"
+    },
+    "context_tags": [
+      "学校",
+      "放送",
+      "ベル"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_MECH_010",
+    "description": "換気扇",
+    "discipline": "機械設備工事",
+    "unit": "台",
+    "unit_price": 25000,
+    "features": {
+      "note": "天井埋込型"
+    },
+    "context_tags": [
+      "学校",
+      "換気扇",
+      "排気"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_PLMB_010",
+    "description": "散水栓",
+    "discipline": "衛生設備工事",
+    "unit": "箇所",
+    "unit_price": 35000,
+    "features": {
+      "note": "屋外散水栓"
+    },
+    "context_tags": [
+      "学校",
+      "散水",
+      "給水"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_PLMB_011",
+    "description": "排水ピット",
+    "discipline": "衛生設備工事",
+    "unit": "箇所",
+    "unit_price": 180000,
+    "features": {
+      "note": "排水ピット＋ポンプ"
+    },
+    "context_tags": [
+      "学校",
+      "排水",
+      "ポンプ"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_PLMB_012",
+    "description": "排水ポンプ",
+    "discipline": "衛生設備工事",
+    "unit": "箇所",
+    "unit_price": 120000,
+    "features": {
+      "note": "水中ポンプ"
+    },
+    "context_tags": [
+      "学校",
+      "排水",
+      "ポンプ"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_030",
+    "description": "既存建物配線接続",
+    "discipline": "電気設備工事",
+    "unit": "式",
+    "unit_price": 150000,
+    "features": {
+      "note": "既存接続工事"
+    },
+    "context_tags": [
+      "学校",
+      "接続",
+      "既存"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_ELEC_031",
+    "description": "絶縁抵抗測定",
+    "discipline": "電気設備工事",
+    "unit": "式",
+    "unit_price": 85000,
+    "features": {
+      "note": "試験費"
+    },
+    "context_tags": [
+      "学校",
+      "試験",
+      "測定"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_MECH_020",
+    "description": "動力換気設備",
+    "discipline": "機械設備工事",
+    "unit": "式",
+    "unit_price": 450000,
+    "features": {
+      "note": "動力換気一式"
+    },
+    "context_tags": [
+      "学校",
+      "換気",
+      "動力"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_MECH_021",
+    "description": "配膳室換気設備",
+    "discipline": "機械設備工事",
+    "unit": "式",
+    "unit_price": 380000,
+    "features": {
+      "note": "厨房換気"
+    },
+    "context_tags": [
+      "学校",
+      "換気",
+      "配膳室"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_PLMB_020",
+    "description": "給水管取出し・接続工事",
+    "discipline": "衛生設備工事",
+    "unit": "式",
+    "unit_price": 250000,
+    "features": {
+      "note": "給水取出し"
+    },
+    "context_tags": [
+      "学校",
+      "給水",
+      "接続"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_PLMB_021",
+    "description": "排水管接続工事",
+    "discipline": "衛生設備工事",
+    "unit": "式",
+    "unit_price": 180000,
+    "features": {
+      "note": "排水接続"
+    },
+    "context_tags": [
+      "学校",
+      "排水",
+      "接続"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_GAS_010",
+    "description": "ガス機器設置工事",
+    "discipline": "ガス設備工事",
+    "unit": "式",
+    "unit_price": 280000,
+    "features": {
+      "note": "機器設置一式"
+    },
+    "context_tags": [
+      "学校",
+      "ガス",
+      "機器"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_GAS_011",
+    "description": "ガスコンロ",
+    "discipline": "ガス設備工事",
+    "unit": "台",
+    "unit_price": 85000,
+    "features": {
+      "note": "業務用コンロ"
+    },
+    "context_tags": [
+      "学校",
+      "ガス",
+      "コンロ"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
+  },
+  {
+    "item_id": "STD_FIRE_010",
+    "description": "消防設備保守点検",
+    "discipline": "消防設備工事",
+    "unit": "式",
+    "unit_price": 120000,
+    "features": {
+      "note": "年次点検"
+    },
+    "context_tags": [
+      "学校",
+      "消防",
+      "点検"
+    ],
+    "valid_from": "2025-11-23",
+    "source_project": "標準単価"
   }
 ]
