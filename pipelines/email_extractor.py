@@ -32,6 +32,7 @@ class EmailInfo(BaseModel):
     # 基本情報
     project_name: Optional[str] = Field(None, description="工事名")
     client_company: Optional[str] = Field(None, description="依頼元会社名")
+    client_branch: Optional[str] = Field(None, description="支店・部署名")
     client_contact: Optional[str] = Field(None, description="担当者名")
     client_email: Optional[str] = Field(None, description="担当者メールアドレス")
     client_phone: Optional[str] = Field(None, description="担当者電話番号")
@@ -110,7 +111,8 @@ class EmailExtractor:
 
 {{
   "project_name": "工事名",
-  "client_company": "依頼元会社名",
+  "client_company": "依頼元会社名（株式会社○○など）",
+  "client_branch": "支店・部署名（○○支店、○○部など。なければnull）",
   "client_contact": "担当者名",
   "client_email": "メールアドレス",
   "client_phone": "電話番号",

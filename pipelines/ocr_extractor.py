@@ -11,6 +11,7 @@ from PIL import Image
 from anthropic import Anthropic
 from loguru import logger
 from dotenv import load_dotenv
+from pipelines.cost_tracker import record_cost
 
 # 環境変数をロード
 load_dotenv()
@@ -146,6 +147,15 @@ JSON形式（配列）：
                             }
                         ]
                     }]
+                )
+
+                # コスト記録
+                record_cost(
+                    operation="OCR見積抽出",
+                    model_name=self.model_name,
+                    input_tokens=response.usage.input_tokens,
+                    output_tokens=response.usage.output_tokens,
+                    metadata={"source": "extract_estimate_from_images", "page": i, "discipline": discipline}
                 )
 
                 # レスポンスからJSONを抽出

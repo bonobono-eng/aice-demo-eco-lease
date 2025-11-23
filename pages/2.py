@@ -17,6 +17,7 @@ sys.path.insert(0, '.')
 
 from pipelines.kb_builder import PriceKBBuilder
 from pipelines.schemas import PriceReference
+from pipelines.cost_tracker import start_session, end_session
 
 
 # カスタムCSS（ページ固有）
@@ -145,6 +146,9 @@ def extract_from_files(uploaded_files, project_name_prefix="uploaded", disciplin
     from pipelines.schemas import DisciplineType, PriceReference
     from datetime import date
 
+    # コスト追跡セッションを開始
+    session_id = start_session(f"単価DB構築（{len(uploaded_files)}ファイル）")
+
     kb_builder = st.session_state.kb_builder
     all_extracted = []
 
@@ -250,6 +254,11 @@ def extract_from_files(uploaded_files, project_name_prefix="uploaded", disciplin
     progress_bar.progress(1.0)
     status_text.markdown("### 全ファイルの処理完了")
     detail_text.text(f"合計: {len(all_extracted)}項目を抽出しました")
+
+    # コスト追跡セッションを終了
+    session_cost = end_session()
+    if session_cost and session_cost.get("total_cost_jpy", 0) > 0:
+        st.info(f"API料金: ¥{session_cost['total_cost_jpy']:.2f}（{session_cost['total_records']}回のAPI呼び出し）")
 
     return all_extracted
 

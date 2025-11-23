@@ -6,10 +6,54 @@ API呼び出しごとのトークン使用量と料金を記録・集計しま�
 
 import os
 import json
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from loguru import logger
+
+# 現在のセッションID（見積もり作成ごとに生成）
+_current_session_id: Optional[str] = None
+_current_session_name: Optional[str] = None
+
+
+def start_session(session_name: str = "見積作成") -> str:
+    """新しいコスト追跡セッションを開始"""
+    global _current_session_id, _current_session_name
+    _current_session_id = str(uuid.uuid4())[:8]
+    _current_session_name = session_name
+    logger.info(f"Cost tracking session started: {_current_session_id} ({session_name})")
+    return _current_session_id
+
+
+def end_session() -> Optional[Dict[str, Any]]:
+    """現在のセッションを終了し、セッションの合計コストを返す"""
+    global _current_session_id, _current_session_name
+    if _current_session_id is None:
+        return None
+
+    tracker = get_tracker()
+    summary = tracker.get_session_summary(_current_session_id)
+
+    # セッション完了レコードを追加
+    if summary["total_cost_jpy"] > 0:
+        tracker.record_session_complete(
+            _current_session_id,
+            _current_session_name or "見積作成",
+            summary
+        )
+
+    session_id = _current_session_id
+    _current_session_id = None
+    _current_session_name = None
+
+    logger.info(f"Cost tracking session ended: {session_id}, Total: ¥{summary['total_cost_jpy']:.2f}")
+    return summary
+
+
+def get_current_session_id() -> Optional[str]:
+    """現在のセッションIDを取得"""
+    return _current_session_id
 
 
 class CostTracker:
@@ -127,7 +171,8 @@ class CostTracker:
             "total_tokens": input_tokens + output_tokens,
             "cost_usd": cost["total_cost_usd"],
             "cost_jpy": cost["total_cost_jpy"],
-            "metadata": metadata or {}
+            "metadata": metadata or {},
+            "session_id": get_current_session_id()  # セッションIDを記録
         }
 
         self.records.append(record)
@@ -242,6 +287,74 @@ class CostTracker:
         self.records = []
         self._save()
         logger.info("Cost records cleared")
+
+    def get_session_summary(self, session_id: str) -> Dict[str, Any]:
+        """特定セッションのコスト集計を取得"""
+        session_records = [
+            r for r in self.records
+            if r.get("session_id") == session_id and r.get("operation") != "セッション完了"
+        ]
+
+        if not session_records:
+            return {
+                "session_id": session_id,
+                "total_records": 0,
+                "total_tokens": 0,
+                "total_cost_usd": 0,
+                "total_cost_jpy": 0,
+                "operations": []
+            }
+
+        operations = []
+        for r in session_records:
+            operations.append({
+                "operation": r["operation"],
+                "tokens": r["total_tokens"],
+                "cost_jpy": r["cost_jpy"]
+            })
+
+        return {
+            "session_id": session_id,
+            "total_records": len(session_records),
+            "total_tokens": sum(r["total_tokens"] for r in session_records),
+            "total_cost_usd": sum(r["cost_usd"] for r in session_records),
+            "total_cost_jpy": sum(r["cost_jpy"] for r in session_records),
+            "operations": operations
+        }
+
+    def record_session_complete(
+        self,
+        session_id: str,
+        session_name: str,
+        summary: Dict[str, Any]
+    ):
+        """セッション完了を記録"""
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "operation": "セッション完了",
+            "session_id": session_id,
+            "session_name": session_name,
+            "model": "N/A",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": summary["total_tokens"],
+            "cost_usd": summary["total_cost_usd"],
+            "cost_jpy": summary["total_cost_jpy"],
+            "metadata": {
+                "api_calls": summary["total_records"],
+                "operations": summary.get("operations", [])
+            }
+        }
+        self.records.append(record)
+        self._save()
+
+    def get_session_history(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """セッション完了履歴を取得"""
+        session_records = [
+            r for r in self.records
+            if r.get("operation") == "セッション完了"
+        ]
+        return list(reversed(session_records[-limit:]))
 
 
 # グローバルインスタンス（シングルトン的に使用）

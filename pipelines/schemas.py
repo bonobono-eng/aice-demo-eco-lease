@@ -75,6 +75,7 @@ class ProjectInfo(BaseModel):
     delivery_date: Optional[date] = Field(default=None, description="納期")
     deadline: Optional[date] = Field(default=None, description="締切日")
     contract_period: Optional[str] = Field(default=None, description="契約期間")
+    payment_terms: Optional[str] = Field(default="本紙記載内容のみ有効とする。", description="決済条件")
     remarks: Optional[str] = Field(default=None, description="備考・特記事項")
 
 
@@ -112,6 +113,7 @@ class EstimateItem(BaseModel):
     source_reference: Optional[str] = Field(default=None, description="出典参照(KB ID/式/条文)")
     confidence: Optional[float] = Field(default=None, description="信頼度スコア(0-1)")
     price_references: List[str] = Field(default_factory=list, description="価格参照ID一覧")
+    estimation_basis: Optional[str] = Field(default=None, description="数量推定根拠")
 
 
 class Requirement(BaseModel):

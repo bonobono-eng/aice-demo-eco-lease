@@ -14,6 +14,7 @@ from loguru import logger
 from pipelines.schemas import (
     DisciplineType, LegalReference, Requirement, EstimateItem
 )
+from pipelines.cost_tracker import record_cost
 
 
 class LegalRequirementExtractor:
@@ -183,6 +184,15 @@ class LegalRequirementExtractor:
                 max_tokens=8000,
                 temperature=0,
                 messages=[{"role": "user", "content": prompt}]
+            )
+
+            # コスト記録
+            record_cost(
+                operation="法令要件抽出",
+                model_name=self.model_name,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                metadata={"source": "extract_legal_requirements", "discipline": discipline.value}
             )
 
             response_text = response.content[0].text

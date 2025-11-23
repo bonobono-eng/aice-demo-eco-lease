@@ -7,6 +7,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from pipelines.schemas import ProjectInfo
+from pipelines.cost_tracker import record_cost
 
 
 class ProjectInfoExtractor:
@@ -69,6 +70,15 @@ class ProjectInfoExtractor:
                 max_tokens=2000,
                 temperature=0,
                 messages=[{"role": "user", "content": prompt}]
+            )
+
+            # コスト記録
+            record_cost(
+                operation="工事情報抽出",
+                model_name=self.model_name,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                metadata={"source": "extract_project_info"}
             )
 
             content = response.content[0].text

@@ -16,6 +16,7 @@ import os
 sys.path.insert(0, '.')
 
 from pipelines.schemas import LegalReference, DisciplineType
+from pipelines.cost_tracker import start_session, end_session
 
 
 # カスタムCSS（ページ固有）
@@ -442,6 +443,9 @@ def main():
                     st.markdown("---")
                     st.subheader("処理状況")
 
+                    # コスト追跡セッションを開始
+                    session_id = start_session(f"法令DB構築（{len(uploaded_files)}ファイル）")
+
                     all_extracted = []
                     progress_bar = st.progress(0)
                     status_text = st.empty()
@@ -480,6 +484,11 @@ def main():
 
                     progress_bar.progress(1.0)
                     status_text.markdown("### 処理完了")
+
+                    # コスト追跡セッションを終了
+                    session_cost = end_session()
+                    if session_cost and session_cost.get("total_cost_jpy", 0) > 0:
+                        st.info(f"API料金: ¥{session_cost['total_cost_jpy']:.2f}（{session_cost['total_records']}回のAPI呼び出し）")
 
                     if all_extracted:
                         st.session_state.extracted_legal_items = all_extracted

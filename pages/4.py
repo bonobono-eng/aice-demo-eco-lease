@@ -94,7 +94,7 @@ def main():
         st.caption("見積生成デモ v2.0")
 
     # タブ
-    tab1, tab2, tab3 = st.tabs(["サマリー", "履歴詳細", "設定"])
+    tab1, tab2, tab3, tab4 = st.tabs(["サマリー", "見積別コスト", "履歴詳細", "設定"])
 
     # タブ1: サマリー
     with tab1:
@@ -194,8 +194,80 @@ def main():
         else:
             st.info("まだ利用履歴がありません")
 
-    # タブ2: 履歴詳細
+    # タブ2: 見積別コスト
     with tab2:
+        st.markdown("### 見積作成別のAPI料金")
+        st.caption("1回の見積作成でかかったAPI料金の履歴")
+
+        session_history = tracker.get_session_history(limit=20)
+
+        if session_history:
+            # 見積別コスト一覧
+            session_data = []
+            for session in session_history:
+                timestamp = session['timestamp'][:19].replace('T', ' ')
+                session_data.append({
+                    "日時": timestamp,
+                    "作業内容": session.get('session_name', '見積作成'),
+                    "API呼出回数": session.get('metadata', {}).get('api_calls', 0),
+                    "トークン数": f"{session['total_tokens']:,}",
+                    "料金": f"¥{session['cost_jpy']:.2f}"
+                })
+
+            st.dataframe(session_data, use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # 詳細表示
+            st.markdown("### 詳細内訳")
+            for idx, session in enumerate(session_history[:10], 1):
+                timestamp = session['timestamp'][:19].replace('T', ' ')
+                session_name = session.get('session_name', '見積作成')
+                cost_jpy = session['cost_jpy']
+                api_calls = session.get('metadata', {}).get('api_calls', 0)
+
+                with st.expander(
+                    f"{idx}. [{timestamp}] {session_name} - ¥{cost_jpy:.2f}"
+                ):
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown(f"**作業内容**: {session_name}")
+                        st.markdown(f"**API呼出回数**: {api_calls}回")
+                        st.markdown(f"**総トークン数**: {session['total_tokens']:,}")
+
+                    with col2:
+                        st.markdown(f"**コスト（USD）**: ${session['cost_usd']:.4f}")
+                        st.markdown(f"**コスト（JPY）**: ¥{session['cost_jpy']:.2f}")
+
+                    # 操作別内訳
+                    operations = session.get('metadata', {}).get('operations', [])
+                    if operations:
+                        st.markdown("**内訳**:")
+                        for op in operations:
+                            st.markdown(f"- {op['operation']}: {op['tokens']:,}トークン / ¥{op['cost_jpy']:.2f}")
+
+            # 統計情報
+            st.divider()
+            st.markdown("### 統計情報")
+
+            if len(session_history) > 0:
+                total_cost = sum(s['cost_jpy'] for s in session_history)
+                avg_cost = total_cost / len(session_history)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("見積作成回数", f"{len(session_history)}回")
+                with col2:
+                    st.metric("合計API料金", f"¥{total_cost:.2f}")
+                with col3:
+                    st.metric("平均料金/回", f"¥{avg_cost:.2f}")
+
+        else:
+            st.info("見積作成の履歴がありません。見積書を作成すると、ここにAPI料金が表示されます。")
+
+    # タブ3: 履歴詳細
+    with tab3:
         st.markdown("### API呼び出し履歴")
 
         records = tracker.get_recent_records(limit=100)
@@ -266,8 +338,8 @@ def main():
         else:
             st.info("まだ利用履歴がありません。見積生成やKB抽出を実行すると、ここに履歴が表示されます。")
 
-    # タブ3: 設定
-    with tab3:
+    # タブ4: 設定
+    with tab4:
         st.markdown("### 設定")
 
         st.markdown("#### 為替レート")

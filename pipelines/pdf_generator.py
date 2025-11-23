@@ -1,5 +1,6 @@
 """PDF Generator - Ecolease形式の見積書PDF生成"""
 
+import re
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -11,7 +12,8 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Table, TableStyle
+from reportlab.platypus import Table, TableStyle, Paragraph
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 
 from pipelines.schemas import FMTDocument
@@ -379,6 +381,7 @@ class EcoleasePDFGenerator:
         c.setFont(self.font_name, work_info_font_size)
         label_width = work_info_label_width
         line_spacing = work_info_line_spacing
+        max_text_width = content_right - (content_left + label_width)
 
         self._draw_text_with_weight(c, content_left, y, "工　事　名",
                                      work_info_font_weight, align='left')
@@ -392,19 +395,19 @@ class EcoleasePDFGenerator:
                                      work_info_font_weight, align='left')
 
         y -= line_spacing
-        # リース期間（折り返し対応）
+        # リース期間（項目ごとに改行）
         self._draw_text_with_weight(c, content_left, y, "リース期間",
                                      work_info_font_weight, align='left')
         contract_period = fmt_doc.project_info.contract_period or ""
-        # 利用可能な最大幅（コンテンツ右端 - ラベル終了位置 - 余白）
-        max_text_width = content_right - (content_left + label_width) - 5*mm
-        wrapped_lines = self._wrap_text(c, contract_period, max_text_width)
-        for i, line in enumerate(wrapped_lines):
+        # 「、」「,」で分割して項目ごとに改行
+        period_items = re.split(r'[、,]', contract_period)
+        period_items = [item.strip() for item in period_items if item.strip()]
+        for i, line in enumerate(period_items):
             self._draw_text_with_weight(c, content_left + label_width, y - (i * line_spacing * 0.85), line,
                                          work_info_font_weight, align='left')
         # 複数行の場合、追加分のスペースを確保
-        if len(wrapped_lines) > 1:
-            y -= line_spacing * 0.85 * (len(wrapped_lines) - 1)
+        if len(period_items) > 1:
+            y -= line_spacing * 0.85 * (len(period_items) - 1)
 
         y -= line_spacing
         # 決済条件（折り返し対応）
@@ -500,22 +503,14 @@ class EcoleasePDFGenerator:
     def _create_detail_pages(self, c, fmt_doc: FMTDocument):
         """見積内訳明細書ページ（2ページ目以降、横向き）
 
-        参照見積書の構造に合わせて：
-        - 1ページ目：サマリー（大項目のみ）
-        - 2ページ目以降：各大項目の詳細
+        全項目を連続してリスト表示（無制限ページ対応）
         """
 
         # 1. サマリーページ（大項目のみ）
         self._create_summary_page(c, fmt_doc)
 
-        # 2. 各大項目の詳細ページ
-        level_0_items = [item for item in fmt_doc.estimate_items if item.level == 0]
-
-        current_page = 2  # サマリーが1ページ目、詳細は2ページ目から
-        for main_item in level_0_items:
-            c.showPage()  # 新しいページ
-            pages_added = self._create_detail_page_for_item(c, fmt_doc, main_item, current_page)
-            current_page += pages_added
+        # 2. 全項目を連続して明細表示（ページ数無制限）
+        self._create_continuous_detail_pages(c, fmt_doc)
 
     def _create_summary_page(self, c, fmt_doc: FMTDocument):
         """サマリーページ（大項目のみ）"""
@@ -577,8 +572,112 @@ class EcoleasePDFGenerator:
         # テーブル描画
         self._draw_table(c, table_data, lwidth, lheight)
 
+    def _create_continuous_detail_pages(self, c, fmt_doc: FMTDocument):
+        """全項目を連続して明細表示（参照PDF形式・ページ数無制限）"""
+        lwidth, lheight = landscape(A4)
+
+        # 利用可能なテーブル高さ
+        available_height = lheight - 35*mm - 25*mm
+        header_height = 7*mm
+        row_base_height = 7*mm
+
+        # 全項目を行高さを考慮してページ分割
+        all_items = fmt_doc.estimate_items
+        pages_data = []
+        current_page_items = []
+        current_height = header_height  # ヘッダー行
+
+        for item in all_items:
+            # 行高さ推定
+            spec_text = item.specification if item.specification else ''
+            name_text = item.name
+            spec_lines = max(1, (len(spec_text) + 14) // 15) if spec_text else 1
+            name_lines = max(1, (len(name_text) + 18) // 18) if name_text else 1
+            max_lines = max(spec_lines, name_lines)
+            row_height = row_base_height * max_lines
+
+            # ページ分割判定
+            if current_height + row_height > available_height and current_page_items:
+                pages_data.append(current_page_items)
+                current_page_items = []
+                current_height = header_height
+
+            current_page_items.append(item)
+            current_height += row_height
+
+        # 最後のページを追加
+        if current_page_items:
+            pages_data.append(current_page_items)
+
+        # 各ページを描画
+        for page_idx, page_items in enumerate(pages_data):
+            c.showPage()
+            page_no = page_idx + 2  # サマリーが1ページ目
+
+            # ページヘッダー
+            c.setFont(self.font_name, 14)
+            title_y = lheight - 15*mm
+            title_text = "見　積　内　訳　明　細　書"
+            c.drawCentredString(lwidth / 2, title_y, title_text)
+
+            title_width = c.stringWidth(title_text, self.font_name, 14)
+            line_start = (lwidth - title_width) / 2
+            c.line(line_start, title_y - 2.5*mm, line_start + title_width, title_y - 2.5*mm)
+
+            c.setFont(self.font_name, 9)
+            quote_no = fmt_doc.metadata.get('quote_no', 'XXXXXXX-00')
+            c.drawString(25*mm, lheight - 25*mm, f"({quote_no})")
+
+            # テーブルデータ作成
+            table_data = []
+            table_data.append(['No', '名　　　称', '仕　　　様', '数　量', '単位', '単　価', '金　額', '摘　要'])
+
+            for item in page_items:
+                # 親項目（level 0, 1）は名称と金額、子項目は詳細表示
+                if item.level == 0:
+                    # 大項目: 名称と金額（小計として表示）
+                    row = [
+                        '',
+                        f"【{item.name}】",
+                        '',
+                        '1',
+                        '式',
+                        '',
+                        f"{int(item.amount):,}" if item.amount is not None else "",
+                        ''
+                    ]
+                elif item.level == 1:
+                    # 中項目: 名称とインデント、金額表示
+                    row = [
+                        '',
+                        f"　{item.name}",
+                        '',
+                        '1' if item.amount else '',
+                        '式' if item.amount else '',
+                        '',
+                        f"{int(item.amount):,}" if item.amount is not None else "",
+                        ''
+                    ]
+                else:
+                    # 詳細項目: 全情報表示
+                    indent = "　" * (item.level - 1)
+                    row = [
+                        item.item_no if item.item_no else '',
+                        f"{indent}{item.name}",
+                        item.specification if item.specification else '',
+                        str(item.quantity) if item.quantity is not None else '',
+                        item.unit if item.unit else '',
+                        f"{int(item.unit_price):,}" if item.unit_price is not None else "",
+                        f"{int(item.amount):,}" if item.amount is not None else "",
+                        ''
+                    ]
+                table_data.append(row)
+
+            # テーブル描画
+            self._draw_table(c, table_data, lwidth, lheight, page_no)
+
     def _create_detail_page_for_item(self, c, fmt_doc: FMTDocument, main_item, start_page):
-        """特定の大項目の詳細ページを作成（複数ページ対応）
+        """特定の大項目の詳細ページを作成（複数ページ対応・行高さ計算版）
 
         Returns:
             int: 作成したページ数
@@ -595,21 +694,61 @@ class EcoleasePDFGenerator:
                 break
             detail_items.append(fmt_doc.estimate_items[i])
 
-        # 1ページあたりの最大データ行数（ヘッダー3行 + 小計1行 = 4行を除く）
-        max_rows_per_page = 22
+        # 利用可能なテーブル高さ（ヘッダー、フッター、マージン考慮）
+        available_height = lheight - 35*mm - 25*mm  # 上35mm、下25mm
 
-        # ページ分割
-        total_pages = (len(detail_items) + max_rows_per_page - 1) // max_rows_per_page
+        # 全項目をページ単位に分割
+        pages_data = []
+        current_page_items = []
+        current_height = 0
+        header_height = 7*mm  # ヘッダー行の高さ
+        row_base_height = 7*mm  # 基本行高さ
+        is_first_page = True
+
+        for item in detail_items:
+            if item.level == 0:
+                continue  # 大項目自体はスキップ
+
+            # 行の高さを推定（仕様テキストの長さに基づく）
+            spec_text = item.specification if item.specification else ''
+            name_text = "　" * item.level + item.name
+            # 1行あたり約15文字として折り返し行数を推定
+            spec_lines = max(1, (len(spec_text) + 14) // 15) if spec_text else 1
+            name_lines = max(1, (len(name_text) + 20) // 20) if name_text else 1
+            max_lines = max(spec_lines, name_lines)
+            row_height = row_base_height * max_lines
+
+            # 新しいページが必要か判定
+            needed_height = current_height + row_height
+            if is_first_page and not current_page_items:
+                # 最初のページはタイトル行追加
+                needed_height += header_height * 3  # ヘッダー + タイトル行 + 空行
+
+            if needed_height > available_height and current_page_items:
+                pages_data.append(current_page_items)
+                current_page_items = []
+                current_height = header_height  # ヘッダー行の高さ
+                is_first_page = False
+
+            current_page_items.append(item)
+            current_height += row_height
+
+        # 最後のページを追加
+        if current_page_items:
+            pages_data.append(current_page_items)
+
+        # ページなしの場合（大項目のみ）
+        if not pages_data:
+            pages_data = [[]]
+
         pages_created = 0
 
-        for page_start in range(0, len(detail_items), max_rows_per_page):
-            if page_start > 0:
+        for page_idx, page_items in enumerate(pages_data):
+            if page_idx > 0:
                 c.showPage()  # 2ページ目以降は改ページ
 
-            page_items = detail_items[page_start:page_start + max_rows_per_page]
-
             # ページヘッダー
-            self._draw_page_header(c, fmt_doc, lwidth, lheight, pages_created + 1, total_pages)
+            self._draw_page_header(c, fmt_doc, lwidth, lheight, pages_created + 1, len(pages_data))
 
             # テーブルデータ
             table_data = []
@@ -618,15 +757,12 @@ class EcoleasePDFGenerator:
             table_data.append(['No', '名　　　称', '仕　　　様', '数　量', '単位', '単　　価', '金　　額', '摘　　要'])
 
             # 1ページ目のみ：大項目名を表示
-            if page_start == 0:
+            if page_idx == 0:
                 table_data.append(['', main_item.name, '', '', '', '', '', ''])
                 table_data.append(['', '', '', '', '', '', '', ''])
 
             # 詳細項目
             for item in page_items:
-                if item.level == 0:
-                    continue  # 大項目自体はスキップ（上で表示済み）
-
                 indent = "　" * item.level
                 indented_name = f"{indent}{item.name}"
 
@@ -643,7 +779,7 @@ class EcoleasePDFGenerator:
                 table_data.append(row)
 
             # 最終ページのみ：小計行
-            if page_start + max_rows_per_page >= len(detail_items):
+            if page_idx == len(pages_data) - 1:
                 subtotal = main_item.amount if main_item.amount else 0
                 table_data.append(['', '小　　　計', '', '', '', '', f"{int(subtotal):,}", ''])
 
@@ -674,10 +810,32 @@ class EcoleasePDFGenerator:
         c.drawString(25*mm, lheight - 25*mm, f"({quote_no})")
 
     def _draw_table(self, c, table_data, lwidth, lheight, page_no=1):
-        """テーブル描画"""
+        """テーブル描画（テキスト折り返し対応）"""
         col_widths = [18*mm, 60*mm, 50*mm, 20*mm, 15*mm, 25*mm, 28*mm, 42*mm]
 
-        table = Table(table_data, colWidths=col_widths, rowHeights=6.5*mm)
+        # 長いテキスト用のParagraphスタイル
+        cell_style = ParagraphStyle(
+            'CellStyle',
+            fontName=self.font_name,
+            fontSize=8,
+            leading=10,  # 行間
+            wordWrap='CJK',  # 日本語折り返し
+        )
+
+        # 名称(1)と仕様(2)列をParagraphに変換
+        wrapped_data = []
+        for row_idx, row in enumerate(table_data):
+            new_row = list(row)
+            if row_idx > 0:  # ヘッダー行以外
+                # 名称列（インデックス1）
+                if new_row[1]:
+                    new_row[1] = Paragraph(str(new_row[1]), cell_style)
+                # 仕様列（インデックス2）
+                if new_row[2]:
+                    new_row[2] = Paragraph(str(new_row[2]), cell_style)
+            wrapped_data.append(new_row)
+
+        table = Table(wrapped_data, colWidths=col_widths, rowHeights=None)  # 高さを自動調整
         table.setStyle(TableStyle([
             # フォント
             ('FONTNAME', (0, 0), (-1, -1), self.font_name),
@@ -704,10 +862,10 @@ class EcoleasePDFGenerator:
             ('ALIGN', (1, -1), (1, -1), 'CENTER'),
         ]))
 
-        # テーブル配置
+        # テーブル配置（可変高さに対応）
         table_start_y = lheight - 35*mm
-        table.wrapOn(c, lwidth, lheight)
-        table.drawOn(c, 25*mm, table_start_y - len(table_data) * 6.5*mm)
+        w, h = table.wrapOn(c, lwidth, lheight)  # 実際のテーブルサイズを取得
+        table.drawOn(c, 25*mm, table_start_y - h)
 
         # フッター
         c.setFont(self.font_name, 8)

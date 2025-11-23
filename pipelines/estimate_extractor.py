@@ -11,6 +11,7 @@ from loguru import logger
 import PyPDF2
 
 from pipelines.schemas import EstimateItem, DisciplineType, FMTDocument, ProjectInfo, FacilityType
+from pipelines.cost_tracker import record_cost
 
 
 class EstimateExtractor:
@@ -129,6 +130,15 @@ JSON配列形式で出力してください：
                 messages=[{"role": "user", "content": prompt}]
             )
 
+            # コスト記録
+            record_cost(
+                operation="見積項目抽出",
+                model_name=self.model_name,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                metadata={"source": "extract_estimate_items", "discipline": discipline.value}
+            )
+
             response_text = response.content[0].text
             logger.debug(f"LLM Response: {response_text[:500]}...")
 
@@ -188,6 +198,15 @@ JSON形式で出力してください：
                 max_tokens=2000,
                 temperature=0,
                 messages=[{"role": "user", "content": prompt}]
+            )
+
+            # コスト記録
+            record_cost(
+                operation="プロジェクト情報抽出",
+                model_name=self.model_name,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                metadata={"source": "extract_project_info"}
             )
 
             response_text = response.content[0].text

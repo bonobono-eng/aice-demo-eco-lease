@@ -61,3 +61,6 @@ Thumbs.db
 .streamlit/
 
 
+
+# ログファイル
+logs/
