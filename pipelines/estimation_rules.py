@@ -184,108 +184,121 @@ class QuantityRule:
 
 QUANTITY_RULES = {
     DisciplineType.ELECTRICAL: [
-        # 照明
+        # 照明（係数を大幅に下方修正）
         QuantityRule(
             item_keywords=["照明器具", "照明", "ライト"],
-            per_sqm=0.08,  # 8台/100㎡
-            min_quantity=10,
-            unit="台",
-            description="床面積から推定（8台/100㎡）"
-        ),
-        QuantityRule(
-            item_keywords=["非常照明", "非常灯"],
-            per_sqm=0.02,  # 2台/100㎡
+            per_sqm=0.02,  # 2台/100㎡（旧: 8台/100㎡）
             min_quantity=5,
+            max_quantity=50,  # 上限追加
             unit="台",
             description="床面積から推定（2台/100㎡）"
         ),
         QuantityRule(
-            item_keywords=["誘導灯"],
-            per_room=0.5,  # 2部屋に1台
-            min_quantity=5,
+            item_keywords=["非常照明", "非常灯"],
+            per_sqm=0.005,  # 0.5台/100㎡（旧: 2台/100㎡）
+            min_quantity=2,
+            max_quantity=20,
             unit="台",
-            description="部屋数から推定（2部屋に1台）"
+            description="床面積から推定（0.5台/100㎡）"
         ),
-        # コンセント
+        QuantityRule(
+            item_keywords=["誘導灯"],
+            per_room=0.2,  # 5部屋に1台（旧: 2部屋に1台）
+            min_quantity=2,
+            max_quantity=15,
+            unit="台",
+            description="部屋数から推定（5部屋に1台）"
+        ),
+        # コンセント（係数を下方修正）
         QuantityRule(
             item_keywords=["コンセント"],
-            per_sqm=0.15,  # 15個/100㎡
-            per_room=4,  # または4個/室
-            min_quantity=20,
+            per_sqm=0.03,  # 3個/100㎡（旧: 15個/100㎡）
+            per_room=2,  # 2個/室（旧: 4個/室）
+            min_quantity=5,
+            max_quantity=50,
             unit="箇所",
             description="床面積または部屋数から推定"
         ),
         # スイッチ
         QuantityRule(
             item_keywords=["スイッチ"],
-            per_room=2,  # 2個/室
-            min_quantity=10,
+            per_room=1,  # 1個/室（旧: 2個/室）
+            min_quantity=5,
+            max_quantity=30,
             unit="箇所",
-            description="部屋数から推定（2個/室）"
+            description="部屋数から推定（1個/室）"
         ),
         # 分電盤
         QuantityRule(
             item_keywords=["分電盤"],
-            per_floor=2,  # 2面/階
-            min_quantity=2,
+            per_floor=1,  # 1面/階（旧: 2面/階）
+            min_quantity=1,
+            max_quantity=5,
             unit="面",
-            description="階数から推定（2面/階）"
+            description="階数から推定（1面/階）"
         ),
-        # ケーブル
+        # ケーブル（係数を大幅に下方修正）
         QuantityRule(
             item_keywords=["ケーブル", "幹線", "CV", "CVT"],
-            per_sqm=0.5,  # 50m/100㎡
-            min_quantity=100,
+            per_sqm=0.05,  # 5m/100㎡（旧: 50m/100㎡）
+            min_quantity=20,
+            max_quantity=200,
             unit="m",
-            description="床面積から推定（50m/100㎡）"
+            description="床面積から推定（5m/100㎡）"
         ),
         # 電話・LAN
         QuantityRule(
             item_keywords=["電話", "LAN", "情報"],
-            per_room=2,  # 2口/室
-            min_quantity=10,
+            per_room=1,  # 1口/室（旧: 2口/室）
+            min_quantity=5,
+            max_quantity=30,
             unit="箇所",
-            description="部屋数から推定（2口/室）"
+            description="部屋数から推定（1口/室）"
         ),
     ],
     DisciplineType.MECHANICAL: [
-        # エアコン
+        # エアコン（係数を下方修正）
         QuantityRule(
             item_keywords=["エアコン", "空調機", "室内機"],
-            per_sqm=0.05,  # 5台/100㎡
-            min_quantity=5,
+            per_sqm=0.01,  # 1台/100㎡（旧: 5台/100㎡）
+            min_quantity=1,
+            max_quantity=20,
             unit="台",
-            description="床面積から推定（5台/100㎡）"
+            description="床面積から推定（1台/100㎡）"
         ),
         # 換気扇
         QuantityRule(
             item_keywords=["換気扇"],
-            per_room=0.5,  # 2部屋に1台
-            min_quantity=5,
+            per_room=0.2,  # 5部屋に1台（旧: 2部屋に1台）
+            min_quantity=2,
+            max_quantity=15,
             unit="台",
             description="部屋数から推定"
         ),
         # 給水栓
         QuantityRule(
             item_keywords=["給水栓", "蛇口", "水栓"],
-            per_room=0.3,  # 3部屋に1個
-            min_quantity=5,
+            per_room=0.2,  # 5部屋に1個（旧: 3部屋に1個）
+            min_quantity=2,
+            max_quantity=20,
             unit="個",
             description="部屋数から推定"
         ),
         # 便器
         QuantityRule(
             item_keywords=["便器", "トイレ"],
-            per_sqm=0.01,  # 1台/100㎡
-            min_quantity=2,
+            per_sqm=0.005,  # 0.5台/100㎡（旧: 1台/100㎡）
+            min_quantity=1,
+            max_quantity=10,
             unit="台",
             description="床面積から推定"
         ),
-        # 配管
+        # 配管（係数を下方修正）
         QuantityRule(
             item_keywords=["給水配管", "排水配管", "配管"],
-            per_sqm=0.3,  # 30m/100㎡
-            min_quantity=50,
+            per_sqm=0.05,  # 5m/100㎡（旧: 30m/100㎡）
+            min_quantity=10,
+            max_quantity=100,
             unit="m",
             description="床面積から推定"
         ),
@@ -294,24 +307,27 @@ QUANTITY_RULES = {
         # ガス栓
         QuantityRule(
             item_keywords=["ガス栓", "ガスコンセント", "ガス口"],
-            per_room=0.2,  # 5部屋に1個（調理室等）
-            min_quantity=2,
+            per_room=0.1,  # 10部屋に1個（旧: 5部屋に1個）
+            min_quantity=1,
+            max_quantity=10,
             unit="個",
             description="部屋数から推定（調理室等）"
         ),
         # ガス配管
         QuantityRule(
             item_keywords=["ガス管", "白ガス管", "配管"],
-            per_sqm=0.15,  # 15m/100㎡
-            min_quantity=30,
+            per_sqm=0.03,  # 3m/100㎡（旧: 15m/100㎡）
+            min_quantity=10,
+            max_quantity=100,
             unit="m",
             description="床面積から推定"
         ),
         # 警報器
         QuantityRule(
             item_keywords=["警報器", "ガス漏れ"],
-            per_room=0.1,  # 10部屋に1個
+            per_room=0.05,  # 20部屋に1個（旧: 10部屋に1個）
             min_quantity=1,
+            max_quantity=5,
             unit="個",
             description="ガス使用箇所に設置"
         ),

@@ -347,104 +347,254 @@ JSON配列で出力してください：
             project_name = Path(excel_path).stem
 
         try:
-            wb = openpyxl.load_workbook(excel_path, data_only=True)
-            ws = wb.active
+            # ファイル拡張子に応じてライブラリを選択
+            file_ext = Path(excel_path).suffix.lower()
 
-            price_refs = []
-            item_counter = 1
-
-            # ヘッダー行を探索（「名称」「単価」などを含む行）
-            header_row = None
-            for row_idx in range(1, min(20, ws.max_row + 1)):
-                row_values = [str(cell.value or "").strip() for cell in ws[row_idx]]
-                if any("名称" in v or "名　　称" in v for v in row_values):
-                    header_row = row_idx
-                    logger.info(f"Found header at row {header_row}")
-                    break
-
-            if not header_row:
-                logger.error("Could not find header row in Excel")
-                return []
-
-            # 列インデックスを特定
-            header_cells = [str(cell.value or "").strip() for cell in ws[header_row]]
-
-            name_col = None
-            spec_col = None
-            quantity_col = None
-            unit_col = None
-            unit_price_col = None
-
-            for idx, header in enumerate(header_cells):
-                if "名称" in header or "名　　称" in header:
-                    name_col = idx
-                elif "仕様" in header or "仕　　様" in header:
-                    spec_col = idx
-                elif "数量" in header or "数　量" in header:
-                    quantity_col = idx
-                elif "単位" in header:
-                    unit_col = idx
-                elif "単価" in header or "単　　価" in header:
-                    unit_price_col = idx
-
-            logger.info(f"Column mapping: name={name_col}, spec={spec_col}, qty={quantity_col}, unit={unit_col}, price={unit_price_col}")
-
-            if name_col is None or unit_price_col is None:
-                logger.error("Required columns (name, unit_price) not found")
-                return []
-
-            # データ行を処理
-            for row_idx in range(header_row + 1, ws.max_row + 1):
-                row = ws[row_idx]
-
-                name = str(row[name_col].value or "").strip() if name_col is not None else ""
-                spec = str(row[spec_col].value or "").strip() if spec_col is not None else ""
-                quantity = row[quantity_col].value if quantity_col is not None else None
-                unit = str(row[unit_col].value or "").strip() if unit_col is not None else "式"
-                unit_price = row[unit_price_col].value if unit_price_col is not None else None
-
-                # 空行・親項目（単価なし）をスキップ
-                if not name or not unit_price or unit_price <= 0:
-                    continue
-
-                # 工事区分を推定（ファイル名もヒントとして使用）
-                discipline = self._infer_discipline(name, spec, project_name)
-
-                # コンテキストタグ生成
-                context_tags = []
-                if "学校" in project_name or "高校" in project_name:
-                    context_tags.append("学校")
-                if "改修" in project_name:
-                    context_tags.append("改修")
-                if "仮設" in project_name:
-                    context_tags.append("仮設")
-
-                price_ref = PriceReference(
-                    item_id=f"{project_name}_{item_counter:03d}",
-                    description=name,
-                    discipline=discipline,
-                    unit=unit,
-                    unit_price=float(unit_price),
-                    vendor=None,
-                    valid_from=date.today(),
-                    valid_to=None,
-                    source_project=project_name,
-                    context_tags=context_tags,
-                    features={
-                        "specification": spec,
-                        "quantity": quantity,
-                    },
-                    similarity_score=0.0
-                )
-                price_refs.append(price_ref)
-                item_counter += 1
-
-            logger.info(f"Extracted {len(price_refs)} price items from Excel")
-            return price_refs
+            if file_ext == '.xls':
+                # 古い.xlsフォーマット用にxlrdを使用
+                return self._extract_from_xls(excel_path, project_name)
+            else:
+                # .xlsx用にopenpyxlを使用
+                return self._extract_from_xlsx(excel_path, project_name)
 
         except Exception as e:
             logger.error(f"Error extracting from Excel: {e}")
             return []
+
+    def _extract_from_xls(self, excel_path: str, project_name: str) -> List[PriceReference]:
+        """xlrdを使用して.xlsファイルから抽出"""
+        import xlrd
+        import re
+
+        wb = xlrd.open_workbook(excel_path)
+        ws = wb.sheet_by_index(0)  # 最初のシート
+
+        price_refs = []
+        item_counter = 1
+
+        def normalize_header(s: str) -> str:
+            """全角スペースを除去してヘッダーを正規化"""
+            return re.sub(r'[\s　]+', '', s)
+
+        def parse_number(val) -> float:
+            """テキスト形式の数値をパース（カンマ、スペース対応）"""
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, str):
+                # スペースとカンマを除去
+                cleaned = val.replace(',', '').replace(' ', '').replace('　', '').strip()
+                if cleaned:
+                    try:
+                        return float(cleaned)
+                    except ValueError:
+                        pass
+            return 0.0
+
+        # ヘッダー行を探索（全角スペースを含む「名称」を検出）
+        header_row = None
+        for row_idx in range(min(30, ws.nrows)):
+            row_values = [str(ws.cell_value(row_idx, col_idx) or "")
+                         for col_idx in range(ws.ncols)]
+            # 全角スペースを除去して比較
+            normalized = [normalize_header(v) for v in row_values]
+            if any("名称" in v for v in normalized):
+                header_row = row_idx
+                logger.info(f"Found header at row {header_row}")
+                break
+
+        if header_row is None:
+            logger.error("Could not find header row in Excel")
+            return []
+
+        # 列インデックスを特定
+        header_cells = [str(ws.cell_value(header_row, col_idx) or "")
+                       for col_idx in range(ws.ncols)]
+        normalized_headers = [normalize_header(h) for h in header_cells]
+
+        name_col = None
+        spec_col = None
+        quantity_col = None
+        unit_col = None
+        unit_price_col = None
+
+        for idx, header in enumerate(normalized_headers):
+            if "名称" in header and name_col is None:
+                name_col = idx
+            elif ("仕様" in header or "規格" in header) and spec_col is None:
+                spec_col = idx
+            elif "数量" in header and quantity_col is None:
+                quantity_col = idx
+            elif "単位" in header and unit_col is None:
+                unit_col = idx
+            elif "単価" in header and unit_price_col is None:
+                unit_price_col = idx
+
+        logger.info(f"Column mapping: name={name_col}, spec={spec_col}, qty={quantity_col}, unit={unit_col}, price={unit_price_col}")
+
+        if name_col is None or unit_price_col is None:
+            logger.error("Required columns (name, unit_price) not found")
+            return []
+
+        # データ行を処理
+        for row_idx in range(header_row + 1, ws.nrows):
+            name_raw = str(ws.cell_value(row_idx, name_col) or "").strip() if name_col is not None else ""
+            spec = str(ws.cell_value(row_idx, spec_col) or "").strip() if spec_col is not None else ""
+            quantity_raw = ws.cell_value(row_idx, quantity_col) if quantity_col is not None else None
+            unit = str(ws.cell_value(row_idx, unit_col) or "").strip() if unit_col is not None else "式"
+            unit_price_raw = ws.cell_value(row_idx, unit_price_col) if unit_price_col is not None else None
+
+            # ヘッダー行をスキップ（ページ区切りで再度出現する場合）
+            if normalize_header(name_raw) == "名称":
+                continue
+
+            # 「同上」「〃」は親項目の名称を使用
+            name = name_raw
+            if name in ["〃", "同上", "〟"]:
+                # 直前の有効な名称を使用
+                for prev_ref in reversed(price_refs):
+                    if prev_ref.description and prev_ref.description not in ["〃", "同上", "〟"]:
+                        name = prev_ref.description
+                        break
+
+            # 単価と数量をパース
+            unit_price = parse_number(unit_price_raw)
+            quantity = parse_number(quantity_raw) if quantity_raw else None
+
+            # 空行・親項目（単価なし）をスキップ
+            if not name or unit_price <= 0:
+                continue
+
+            # 工事区分を推定（ファイル名もヒントとして使用）
+            discipline = self._infer_discipline(name, spec, excel_path)
+
+            # コンテキストタグ生成
+            context_tags = []
+            if "学校" in project_name or "高校" in project_name or "小学校" in project_name or "中学校" in project_name:
+                context_tags.append("学校")
+            if "改修" in project_name:
+                context_tags.append("改修")
+            if "仮設" in project_name:
+                context_tags.append("仮設")
+
+            price_ref = PriceReference(
+                item_id=f"{project_name}_{item_counter:03d}",
+                description=name,
+                discipline=discipline,
+                unit=unit,
+                unit_price=float(unit_price),
+                vendor=None,
+                valid_from=date.today(),
+                valid_to=None,
+                source_project=project_name,
+                context_tags=context_tags,
+                features={
+                    "specification": spec,
+                    "quantity": quantity if quantity else None,
+                },
+                similarity_score=0.0
+            )
+            price_refs.append(price_ref)
+            item_counter += 1
+
+        logger.info(f"Extracted {len(price_refs)} price items from .xls file")
+        return price_refs
+
+    def _extract_from_xlsx(self, excel_path: str, project_name: str) -> List[PriceReference]:
+        """openpyxlを使用して.xlsxファイルから抽出"""
+        wb = openpyxl.load_workbook(excel_path, data_only=True)
+        ws = wb.active
+
+        price_refs = []
+        item_counter = 1
+
+        # ヘッダー行を探索（「名称」「単価」などを含む行）
+        header_row = None
+        for row_idx in range(1, min(20, ws.max_row + 1)):
+            row_values = [str(cell.value or "").strip() for cell in ws[row_idx]]
+            if any("名称" in v or "名　　称" in v for v in row_values):
+                header_row = row_idx
+                logger.info(f"Found header at row {header_row}")
+                break
+
+        if not header_row:
+            logger.error("Could not find header row in Excel")
+            return []
+
+        # 列インデックスを特定
+        header_cells = [str(cell.value or "").strip() for cell in ws[header_row]]
+
+        name_col = None
+        spec_col = None
+        quantity_col = None
+        unit_col = None
+        unit_price_col = None
+
+        for idx, header in enumerate(header_cells):
+            if "名称" in header or "名　　称" in header:
+                name_col = idx
+            elif "仕様" in header or "仕　　様" in header or "規格" in header:
+                spec_col = idx
+            elif "数量" in header or "数　量" in header:
+                quantity_col = idx
+            elif "単位" in header:
+                unit_col = idx
+            elif "単価" in header or "単　　価" in header:
+                unit_price_col = idx
+
+        logger.info(f"Column mapping: name={name_col}, spec={spec_col}, qty={quantity_col}, unit={unit_col}, price={unit_price_col}")
+
+        if name_col is None or unit_price_col is None:
+            logger.error("Required columns (name, unit_price) not found")
+            return []
+
+        # データ行を処理
+        for row_idx in range(header_row + 1, ws.max_row + 1):
+            row = ws[row_idx]
+
+            name = str(row[name_col].value or "").strip() if name_col is not None else ""
+            spec = str(row[spec_col].value or "").strip() if spec_col is not None else ""
+            quantity = row[quantity_col].value if quantity_col is not None else None
+            unit = str(row[unit_col].value or "").strip() if unit_col is not None else "式"
+            unit_price = row[unit_price_col].value if unit_price_col is not None else None
+
+            # 空行・親項目（単価なし）をスキップ
+            if not name or not unit_price or unit_price <= 0:
+                continue
+
+            # 工事区分を推定（ファイル名もヒントとして使用）
+            discipline = self._infer_discipline(name, spec, excel_path)
+
+            # コンテキストタグ生成
+            context_tags = []
+            if "学校" in project_name or "高校" in project_name or "小学校" in project_name or "中学校" in project_name:
+                context_tags.append("学校")
+            if "改修" in project_name:
+                context_tags.append("改修")
+            if "仮設" in project_name:
+                context_tags.append("仮設")
+
+            price_ref = PriceReference(
+                item_id=f"{project_name}_{item_counter:03d}",
+                description=name,
+                discipline=discipline,
+                unit=unit,
+                unit_price=float(unit_price),
+                vendor=None,
+                valid_from=date.today(),
+                valid_to=None,
+                source_project=project_name,
+                context_tags=context_tags,
+                features={
+                    "specification": spec,
+                    "quantity": quantity,
+                },
+                similarity_score=0.0
+            )
+            price_refs.append(price_ref)
+            item_counter += 1
+
+        logger.info(f"Extracted {len(price_refs)} price items from .xlsx file")
+        return price_refs
 
     def _infer_discipline(self, name: str, spec: str, filename: str = "") -> DisciplineType:
         """項目名・仕様・ファイル名から工事区分を推定
